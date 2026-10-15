@@ -4,6 +4,10 @@ interface BuscadorPacientesProps {
 }
 
 export function BuscadorPacientes({ value, onChange }: BuscadorPacientesProps) {
+  const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    onChange(event.target.value);
+  };
+
   return (
     <label className="flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm transition focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-100">
       <svg
@@ -21,7 +25,7 @@ export function BuscadorPacientes({ value, onChange }: BuscadorPacientesProps) {
       <input
         type="search"
         value={value}
-        onChange={(event) => onChange(event.target.value)}
+        onChange={handleChange}
         placeholder="Buscar por nombre, apellido o email..."
         aria-label="Buscar pacientes"
         className="w-full bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400"
