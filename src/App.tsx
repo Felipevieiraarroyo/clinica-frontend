@@ -3,8 +3,9 @@ import { MetricCard } from "./components/MetricCard";
 import { StatusBadge } from "./components/StatusBadge";
 import { PaginaPacientes } from "./pages/PaginaPacientes";
 import type { Metrica } from "./types";
+import { FormularioCita } from "./components/FormularioCita";
 
-type Pagina = "dashboard" | "pacientes";
+type Pagina = "dashboard" | "pacientes" | "citas";
 
 export default function App() {
   const [paginaAtual, setPaginaAtual] = useState<Pagina>("dashboard");
@@ -56,13 +57,19 @@ export default function App() {
             </p>
 
             <h1 className="mt-2 text-3xl font-bold text-slate-900">
-              {paginaAtual === "dashboard" ? "Dashboard" : "Pacientes"}
+              {paginaAtual === "dashboard"
+                ? "Dashboard"
+                : paginaAtual === "pacientes"
+                  ? "Pacientes"
+                  : "Nueva cita"}
             </h1>
 
             <p className="mt-1 text-slate-500">
               {paginaAtual === "dashboard"
                 ? "Resumen general de la clínica"
-                : "Gestión y seguimiento de pacientes"}
+                : paginaAtual === "pacientes"
+                  ? "Gestión y seguimiento de pacientes"
+                  : "Agendamiento de consultas médicas"}
             </p>
           </div>
 
@@ -100,10 +107,24 @@ export default function App() {
           >
             Pacientes
           </button>
+          <button
+            type="button"
+            onClick={() => setPaginaAtual("citas")}
+            aria-current={paginaAtual === "citas" ? "page" : undefined}
+            className={`rounded-lg px-4 py-2 font-semibold transition ${
+              paginaAtual === "citas"
+                ? "bg-teal-700 text-white"
+                : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+            }`}
+          >
+            Nueva cita
+          </button>
         </nav>
 
         {paginaAtual === "pacientes" ? (
           <PaginaPacientes />
+        ) : paginaAtual === "citas" ? (
+          <FormularioCita />
         ) : (
           <>
             {mantenimiento && (
