@@ -1,6 +1,7 @@
 import type { ChangeEvent } from "react";
 import type { EstadoPaciente, Paciente } from "../types/paciente";
 import { BadgeEstado } from "./BadgeEstado";
+import { Link } from "react-router-dom";
 
 interface PacienteRowProps {
   paciente: Paciente;
@@ -40,6 +41,12 @@ export function PacienteRow({
             {paciente.nombre} {paciente.apellido}
           </h3>
           <p className="truncate text-sm text-slate-500">{paciente.email}</p>
+          <Link
+            to={`/pacientes/${paciente.id}`}
+            className="mt-1 inline-block text-sm font-semibold text-teal-700 hover:text-teal-900"
+          >
+            Ver detalle →
+          </Link>
         </div>
       </div>
 

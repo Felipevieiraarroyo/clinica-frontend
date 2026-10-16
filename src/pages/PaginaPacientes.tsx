@@ -12,8 +12,9 @@ import { PacienteRow } from "../components/PacienteRow";
 import { BuscadorPacientes } from "../components/BuscadorPacientes";
 import { BadgeEstado } from "../components/BadgeEstado";
 import { FormularioPaciente } from "../components/FormularioPaciente";
+import { Link } from "react-router-dom";
 
-const pacientesIniciales: Paciente[] = [
+export const PACIENTES_INICIALES: Paciente[] = [
   {
     id: "1",
     nombre: "Sofía",
@@ -67,7 +68,7 @@ const pacientesIniciales: Paciente[] = [
 ];
 
 export function PaginaPacientes() {
-  const [pacientes, setPacientes] = useState<Paciente[]>(pacientesIniciales);
+  const [pacientes, setPacientes] = useState<Paciente[]>(PACIENTES_INICIALES);
   const [busqueda, setBusqueda] = useState("");
   const [estadoFiltro, setEstadoFiltro] = useState<"Todos" | EstadoPaciente>(
     "Todos",
@@ -229,6 +230,12 @@ export function PaginaPacientes() {
                         <p className="mt-1 text-sm text-slate-500">
                           {paciente.email}
                         </p>
+                        <Link
+                          to={`/pacientes/${paciente.id}`}
+                          className="mt-1 inline-block text-sm font-semibold text-teal-700 hover:text-teal-900"
+                        >
+                          Ver detalle →
+                        </Link>
                       </td>
 
                       <td className="px-5 py-4 text-sm text-slate-600">
