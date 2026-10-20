@@ -6,118 +6,103 @@
  * 4. Los estados de los pacientes no están protegidos por tipos específicos.
  */
 
-import { useState } from "react";
-import type { EstadoPaciente, Paciente } from "../types/paciente";
-import { PacienteRow } from "../components/PacienteRow";
-import { BuscadorPacientes } from "../components/BuscadorPacientes";
-import { BadgeEstado } from "../components/BadgeEstado";
-import { FormularioPaciente } from "../components/FormularioPaciente";
+import { useEffect, useState } from "react";
+import type { ChangeEvent } from "react";
 import { Link } from "react-router-dom";
+import axios from "axios";
+import { api } from "../services/api";
+import { FormularioPaciente } from "../components/FormularioPaciente";
 
-export const PACIENTES_INICIALES: Paciente[] = [
-  {
-    id: "1",
-    nombre: "Sofía",
-    apellido: "Navarro",
-    email: "sofia.navarro@example.com",
-    telefono: "+34 612 345 678",
-    especialidadAsignada: "Cardiología",
-    ultimaCita: "12/10/2026",
-    estado: "activo",
-  },
-  {
-    id: "2",
-    nombre: "Carlos",
-    apellido: "Mendoza",
-    email: "carlos.mendoza@example.com",
-    telefono: "+34 623 456 789",
-    especialidadAsignada: "Traumatología",
-    ultimaCita: "10/10/2026",
-    estado: "en_espera",
-  },
-  {
-    id: "3",
-    nombre: "Elena",
-    apellido: "Vargas",
-    email: "elena.vargas@example.com",
-    telefono: "+34 634 567 890",
-    especialidadAsignada: "Pediatría",
-    ultimaCita: "08/10/2026",
-    estado: "activo",
-  },
-  {
-    id: "4",
-    nombre: "Javier",
-    apellido: "Ortiz",
-    email: "javier.ortiz@example.com",
-    telefono: "+34 645 678 901",
-    especialidadAsignada: "Neurología",
-    ultimaCita: "01/10/2026",
-    estado: "inactivo",
-  },
-  {
-    id: "5",
-    nombre: "Lucía",
-    apellido: "Paredes",
-    email: "lucia.paredes@example.com",
-    telefono: "+34 656 789 012",
-    especialidadAsignada: "Dermatología",
-    ultimaCita: "29/09/2026",
-    estado: "activo",
-  },
-];
+interface PacienteAPI {
+  id: number;
+  nombre: string;
+  apellido: string;
+  email: string;
+  telefono: string;
+  fechaNacimiento: string;
+}
 
 export function PaginaPacientes() {
-  const [pacientes, setPacientes] = useState<Paciente[]>(PACIENTES_INICIALES);
+  const [pacientes, setPacientes] = useState<PacienteAPI[]>([]);
   const [busqueda, setBusqueda] = useState("");
-  const [estadoFiltro, setEstadoFiltro] = useState<"Todos" | EstadoPaciente>(
-    "Todos",
-  );
+  const [carregando, setCarregando] = useState(true);
+  const [erro, setErro] = useState("");
+  const [sucesso, setSucesso] = useState("");
 
-  const agregarPaciente = (nuevoPaciente: Paciente) => {
-    setPacientes((prev) => [...prev, nuevoPaciente]);
-  };
+  useEffect(() => {
+    let ativo = true;
 
-  const cambiarEstadoPaciente = (id: string, nuevoEstado: EstadoPaciente) => {
-    setPacientes((prev) =>
-      prev.map((paciente) =>
-        paciente.id === id ? { ...paciente, estado: nuevoEstado } : paciente,
-      ),
+    async function carregarPacientes() {
+      setCarregando(true);
+      setErro("");
+      setSucesso("");
+
+      try {
+        const resposta = await api.get<PacienteAPI[]>("/pacientes");
+
+        if (!ativo) return;
+
+        setPacientes(resposta.data);
+        setSucesso(
+          `${resposta.data.length} paciente(s) carregado(s) com sucesso.`,
+        );
+      } catch (error: unknown) {
+        if (!ativo) return;
+
+        if (axios.isAxiosError(error)) {
+          if (error.response?.status === 401) {
+            setErro(
+              "Sessão ausente ou expirada. Faça login para consultar os pacientes.",
+            );
+          } else if (error.response?.status === 403) {
+            setErro(
+              "Seu usuário não tem permissão para consultar os pacientes. É necessário o papel RECEPCIONISTA.",
+            );
+          } else {
+            setErro(
+              error.response
+                ? `Não foi possível carregar os pacientes (HTTP ${error.response.status}).`
+                : "Não foi possível conectar à API. Confira se o backend está rodando em http://localhost:3000.",
+            );
+          }
+        } else {
+          setErro("Ocorreu um erro inesperado ao carregar os pacientes.");
+        }
+      } finally {
+        if (ativo) setCarregando(false);
+      }
+    }
+
+    void carregarPacientes();
+
+    return () => {
+      ativo = false;
+    };
+  }, []);
+
+  const handlePacienteCriado = (paciente: PacienteAPI) => {
+    setPacientes((anteriores) => [paciente, ...anteriores]);
+    setBusqueda("");
+    setErro("");
+    setSucesso(
+      `Paciente ${paciente.nombre} ${paciente.apellido} cadastrado com sucesso!`,
     );
   };
-
-  const eliminarPaciente = (id: string) => {
-    setPacientes((prev) => prev.filter((paciente) => paciente.id !== id));
-  };
-
   const pacientesFiltrados = pacientes.filter((paciente) => {
     const texto = busqueda.trim().toLowerCase();
+    const nomeCompleto =
+      `${paciente.nombre} ${paciente.apellido}`.toLowerCase();
 
-    const coincideNombre = `${paciente.nombre} ${paciente.apellido}`
-      .toLowerCase()
-      .includes(texto);
-
-    const coincideEstado =
-      estadoFiltro === "Todos" || paciente.estado === estadoFiltro;
-
-    return coincideNombre && coincideEstado;
+    return (
+      nomeCompleto.includes(texto) ||
+      paciente.email.toLowerCase().includes(texto)
+    );
   });
 
-  const cantidadActivos = pacientes.filter(
-    (paciente) => paciente.estado === "activo",
-  ).length;
+  const limparFiltros = () => setBusqueda("");
 
-  const cantidadInactivos = pacientes.filter(
-    (paciente) => paciente.estado === "inactivo",
-  ).length;
-
-  const cantidadEnEspera = pacientes.filter(
-    (paciente) => paciente.estado === "en_espera",
-  ).length;
-
-  const limpiarFiltros = () => {
-    setBusqueda("");
-    setEstadoFiltro("Todos");
+  const handleBuscaChange = (event: ChangeEvent<HTMLInputElement>) => {
+    setBusqueda(event.target.value);
   };
 
   return (
@@ -127,200 +112,154 @@ export function PaginaPacientes() {
           <p className="text-sm font-semibold uppercase tracking-wider text-teal-700">
             Clinical Health Core
           </p>
-
           <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
             Pacientes
           </h1>
-
           <p className="mt-2 text-sm text-slate-500 sm:text-base">
-            Consulta y gestiona la información de tus pacientes.
+            Consulte os pacientes cadastrados na API da clínica.
           </p>
         </header>
 
         <section
-          aria-label="Resumen de pacientes"
-          className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4"
+          aria-label="Resumo de pacientes"
+          className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
         >
-          <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-sm text-slate-500">Total de pacientes</p>
-            <p className="mt-2 text-3xl font-bold text-slate-900">
-              {pacientes.length}
-            </p>
-          </article>
-
-          <article className="rounded-2xl border border-emerald-100 bg-white p-5 shadow-sm">
-            <p className="text-sm text-slate-500">Activos</p>
-            <p className="mt-2 text-3xl font-bold text-emerald-700">
-              {cantidadActivos}
-            </p>
-          </article>
-
-          <article className="rounded-2xl border border-amber-100 bg-white p-5 shadow-sm">
-            <p className="text-sm text-slate-500">En espera</p>
-            <p className="mt-2 text-3xl font-bold text-amber-700">
-              {cantidadEnEspera}
-            </p>
-          </article>
-
-          <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-sm text-slate-500">Inactivos</p>
-            <p className="mt-2 text-3xl font-bold text-slate-600">
-              {cantidadInactivos}
-            </p>
-          </article>
+          <p className="text-sm text-slate-500">
+            Total de pacientes cadastrados
+          </p>
+          <p className="mt-2 text-3xl font-bold text-slate-900">
+            {carregando ? "…" : pacientes.length}
+          </p>
         </section>
-        <section>
-          <FormularioPaciente onAgregar={agregarPaciente} />
-        </section>
+
+        {carregando && (
+          <div
+            role="status"
+            className="rounded-xl bg-teal-50 p-4 text-teal-800"
+          >
+            Carregando pacientes...
+          </div>
+        )}
+
+        {!carregando && erro && (
+          <div
+            role="alert"
+            className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700"
+          >
+            <p className="font-semibold">
+              Não foi possível carregar os pacientes
+            </p>
+            <p className="mt-1 text-sm">{erro}</p>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="mt-3 rounded-lg bg-red-700 px-4 py-2 text-sm font-semibold text-white hover:bg-red-800"
+            >
+              Tentar novamente
+            </button>
+          </div>
+        )}
+
+        {!carregando && !erro && sucesso && (
+          <p
+            role="status"
+            className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800"
+          >
+            {sucesso}
+          </p>
+        )}
+
+        {!carregando && !erro && (
+          <FormularioPaciente onPacienteCriado={handlePacienteCriado} />
+        )}
+
         <section className="space-y-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <div className="w-full sm:max-w-xl sm:flex-1">
-              <BuscadorPacientes value={busqueda} onChange={setBusqueda} />
-            </div>
-
-            <select
-              value={estadoFiltro}
-              onChange={(event: React.ChangeEvent<HTMLSelectElement>) =>
-                setEstadoFiltro(event.target.value as "Todos" | EstadoPaciente)
-              }
-              aria-label="Filtrar por estado"
-              className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
-            >
-              <option value="Todos">Todos</option>
-              <option value="activo">Activo</option>
-              <option value="inactivo">Inactivo</option>
-              <option value="en_espera">En espera</option>
-            </select>
+            <label className="flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm sm:max-w-xl sm:flex-1">
+              <span aria-hidden="true">🔎</span>
+              <input
+                type="search"
+                value={busqueda}
+                onChange={handleBuscaChange}
+                placeholder="Buscar por nombre, apellido o email..."
+                aria-label="Buscar pacientes"
+                className="w-full bg-transparent text-sm text-slate-800 outline-none"
+                disabled={carregando || Boolean(erro)}
+              />
+            </label>
 
             <button
               type="button"
-              onClick={limpiarFiltros}
+              onClick={limparFiltros}
               className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
             >
-              Limpiar filtros
+              Limpar busca
             </button>
           </div>
 
-          <div className="hidden overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm md:block">
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-\[850px] text-left">
-                <thead className="bg-slate-100 text-xs uppercase tracking-wider text-slate-500">
-                  <tr>
-                    <th className="px-5 py-4">Paciente</th>
-                    <th className="px-5 py-4">Teléfono</th>
-                    <th className="px-5 py-4">Especialidad asignada</th>
-                    <th className="px-5 py-4">Última cita</th>
-                    <th className="px-5 py-4">Estado</th>
-                    <th className="px-5 py-4 text-left text-sm font-semibold text-slate-700">
-                      Acciones
-                    </th>
-                  </tr>
-                </thead>
+          {!carregando && !erro && (
+            <>
+              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-\[650px] text-left">
+                    <thead className="bg-slate-100 text-xs uppercase tracking-wider text-slate-500">
+                      <tr>
+                        <th className="px-5 py-4">Paciente</th>
+                        <th className="px-5 py-4">Telefone</th>
+                        <th className="px-5 py-4">Data de nascimento</th>
+                        <th className="px-5 py-4">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {pacientesFiltrados.map((paciente) => (
+                        <tr key={paciente.id} className="hover:bg-slate-50">
+                          <td className="px-5 py-4">
+                            <p className="font-semibold text-slate-900">
+                              {paciente.nombre} {paciente.apellido}
+                            </p>
+                            <p className="mt-1 text-sm text-slate-500">
+                              {paciente.email}
+                            </p>
+                          </td>
+                          <td className="px-5 py-4 text-sm text-slate-600">
+                            {paciente.telefono}
+                          </td>
+                          <td className="px-5 py-4 text-sm text-slate-600">
+                            {new Date(
+                              paciente.fechaNacimiento,
+                            ).toLocaleDateString("pt-BR")}
+                          </td>
+                          <td className="px-5 py-4">
+                            <Link
+                              to={`/pacientes/${paciente.id}`}
+                              className="text-sm font-semibold text-teal-700 hover:text-teal-900"
+                            >
+                              Ver detalhes →
+                            </Link>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
 
-                <tbody className="divide-y divide-slate-100">
-                  {pacientesFiltrados.map((paciente) => (
-                    <tr
-                      key={paciente.id}
-                      className="transition hover:bg-slate-50"
-                    >
-                      <td className="px-5 py-4">
-                        <p className="font-semibold text-slate-900">
-                          {paciente.nombre} {paciente.apellido}
-                        </p>
-                        <p className="mt-1 text-sm text-slate-500">
-                          {paciente.email}
-                        </p>
-                        <Link
-                          to={`/pacientes/${paciente.id}`}
-                          className="mt-1 inline-block text-sm font-semibold text-teal-700 hover:text-teal-900"
-                        >
-                          Ver detalle →
-                        </Link>
-                      </td>
+              {pacientesFiltrados.length === 0 && (
+                <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-12 text-center">
+                  <p className="font-semibold text-slate-800">
+                    Nenhum paciente encontrado
+                  </p>
+                  <p className="mt-2 text-sm text-slate-500">
+                    Tente outro nome, sobrenome ou e-mail.
+                  </p>
+                </div>
+              )}
 
-                      <td className="px-5 py-4 text-sm text-slate-600">
-                        {paciente.telefono}
-                      </td>
-
-                      <td className="px-5 py-4 text-sm text-slate-600">
-                        {paciente.especialidadAsignada}
-                      </td>
-
-                      <td className="px-5 py-4 text-sm text-slate-600">
-                        {paciente.ultimaCita}
-                      </td>
-
-                      <td className="px-5 py-4">
-                        <div className="flex flex-col items-start gap-2">
-                          <BadgeEstado estado={paciente.estado} />
-
-                          <select
-                            value={paciente.estado}
-                            onChange={(event) =>
-                              cambiarEstadoPaciente(
-                                paciente.id,
-                                event.target.value as EstadoPaciente,
-                              )
-                            }
-                            aria-label={`Cambiar estado de ${paciente.nombre}`}
-                            className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-700 focus:border-teal-500 focus:outline-none"
-                          >
-                            <option value="activo">Activo</option>
-                            <option value="inactivo">Inactivo</option>
-                            <option value="en_espera">En espera</option>
-                          </select>
-                        </div>
-                      </td>
-
-                      <td className="px-5 py-4">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const confirmar = window.confirm(
-                              `¿Seguro que deseas eliminar a ${paciente.nombre} ${paciente.apellido}?`,
-                            );
-
-                            if (confirmar) {
-                              eliminarPaciente(paciente.id);
-                            }
-                          }}
-                          className="rounded-lg border border-red-200 px-3 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50"
-                        >
-                          Eliminar
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-4 md:hidden">
-            {pacientesFiltrados.map((paciente) => (
-              <PacienteRow
-                key={paciente.id}
-                paciente={paciente}
-                onCambiarEstado={cambiarEstadoPaciente}
-                onEliminar={eliminarPaciente}
-              />
-            ))}
-          </div>
-
-          {pacientesFiltrados.length === 0 && (
-            <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-12 text-center">
-              <p className="font-semibold text-slate-800">
-                No se encontraron pacientes
+              <p className="text-sm text-slate-500" aria-live="polite">
+                {pacientesFiltrados.length} paciente(s) encontrado(s)
               </p>
-              <p className="mt-2 text-sm text-slate-500">
-                Prueba con otro nombre, apellido o correo electrónico.
-              </p>
-            </div>
+            </>
           )}
-
-          <p className="text-sm text-slate-500" aria-live="polite">
-            {pacientesFiltrados.length} paciente(s) encontrado(s)
-          </p>
         </section>
       </div>
     </main>
