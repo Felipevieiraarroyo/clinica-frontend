@@ -1,137 +1,166 @@
-import { useState } from "react";
-import type { ChangeEvent, FormEvent } from "react";
-import type { EstadoPaciente, Paciente } from "../types/paciente";
+import { useState, type FormEvent } from "react";
+import axios from "axios";
+import { api } from "../services/api";
 
-interface FormularioPacienteProps {
-  onAgregar: (paciente: Paciente) => void;
+interface PacienteAPI {
+  id: number;
+  nombre: string;
+  apellido: string;
+  email: string;
+  telefono: string;
+  fechaNacimiento: string;
 }
 
-export function FormularioPaciente({ onAgregar }: FormularioPacienteProps) {
+interface FormularioPacienteProps {
+  onPacienteCriado: (paciente: PacienteAPI) => void;
+}
+
+export function FormularioPaciente({
+  onPacienteCriado,
+}: FormularioPacienteProps) {
   const [nombre, setNombre] = useState("");
   const [apellido, setApellido] = useState("");
   const [email, setEmail] = useState("");
-  const [estado, setEstado] = useState<EstadoPaciente>("activo");
-  const [error, setError] = useState("");
+  const [telefono, setTelefono] = useState("");
+  const [fechaNacimiento, setFechaNacimiento] = useState("");
+  const [erro, setErro] = useState("");
+  const [carregando, setCarregando] = useState(false);
 
-  const limpiarFormulario = () => {
+  function limparFormulario() {
     setNombre("");
     setApellido("");
     setEmail("");
-    setEstado("activo");
-    setError("");
-  };
+    setTelefono("");
+    setFechaNacimiento("");
+    setErro("");
+  }
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setErro("");
+    setCarregando(true);
 
-    if (!nombre.trim() || !email.trim()) {
-      setError("Nombre y email son obligatorios");
-      return;
+    try {
+      const resposta = await api.post<PacienteAPI>("/pacientes", {
+        nombre: nombre.trim(),
+        apellido: apellido.trim(),
+        email: email.trim(),
+        telefono: telefono.trim(),
+        fechaNacimiento,
+      });
+
+      onPacienteCriado(resposta.data);
+      limparFormulario();
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 400) {
+          const detalhes = error.response.data?.details;
+          setErro(
+            Array.isArray(detalhes)
+              ? detalhes
+                  .map((item: { message: string }) => item.message)
+                  .join(" ")
+              : "Confira os dados preenchidos.",
+          );
+        } else if (error.response?.status === 401) {
+          setErro("Sua sessão expirou. Faça login novamente.");
+        } else if (error.response?.status === 403) {
+          setErro("Seu usuário não tem permissão para cadastrar pacientes.");
+        } else {
+          setErro(
+            error.response?.data?.error ??
+              "Não foi possível cadastrar o paciente.",
+          );
+        }
+      } else {
+        setErro("Ocorreu um erro inesperado.");
+      }
+    } finally {
+      setCarregando(false);
     }
-
-    const nuevoPaciente: Paciente = {
-      id: crypto.randomUUID(),
-      nombre: nombre.trim(),
-      apellido: apellido.trim(),
-      email: email.trim(),
-      estado,
-      telefono: "No registrado",
-      especialidadAsignada: "Sin asignar",
-      ultimaCita: "Sin citas",
-    };
-
-    onAgregar(nuevoPaciente);
-    limpiarFormulario();
-  };
-
-  const handleNombreChange = (event: ChangeEvent<HTMLInputElement>) => {
-    setNombre(event.target.value);
-    setError("");
-  };
-
-  const handleApellidoChange = (event: ChangeEvent<HTMLInputElement>) => {
-    setApellido(event.target.value);
-  };
-
-  const handleEmailChange = (event: ChangeEvent<HTMLInputElement>) => {
-    setEmail(event.target.value);
-    setError("");
-  };
-
-  const handleEstadoChange = (event: ChangeEvent<HTMLSelectElement>) => {
-    setEstado(event.target.value as EstadoPaciente);
-  };
+  }
 
   return (
     <form
       onSubmit={handleSubmit}
       className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
     >
-      <h2 className="text-lg font-bold text-slate-900">Agregar paciente</h2>
+      <h2 className="text-lg font-bold text-slate-900">
+        Cadastrar novo paciente
+      </h2>
 
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="space-y-1 text-sm font-medium text-slate-700">
-          Nombre *
+          Nome *
           <input
             value={nombre}
-            onChange={handleNombreChange}
+            onChange={(event) => setNombre(event.target.value)}
+            required
             className="w-full rounded-lg border border-slate-300 px-3 py-2"
-            placeholder="Nombre"
+            placeholder="Nome"
           />
-          {!nombre.trim() && error && (
-            <span className="block text-red-600">{error}</span>
-          )}
         </label>
 
         <label className="space-y-1 text-sm font-medium text-slate-700">
-          Apellido
+          Sobrenome *
           <input
             value={apellido}
-            onChange={handleApellidoChange}
+            onChange={(event) => setApellido(event.target.value)}
+            required
             className="w-full rounded-lg border border-slate-300 px-3 py-2"
-            placeholder="Apellido"
+            placeholder="Sobrenome"
           />
         </label>
 
-        <label className="space-y-1 text-sm font-medium text-slate-700 sm:col-span-2">
-          Email *
+        <label className="space-y-1 text-sm font-medium text-slate-700">
+          E-mail *
           <input
             type="email"
             value={email}
-            onChange={handleEmailChange}
+            onChange={(event) => setEmail(event.target.value)}
+            required
             className="w-full rounded-lg border border-slate-300 px-3 py-2"
-            placeholder="correo@ejemplo.com"
+            placeholder="paciente@exemplo.com"
           />
-          {!email.trim() && error && (
-            <span className="block text-red-600">{error}</span>
-          )}
+        </label>
+
+        <label className="space-y-1 text-sm font-medium text-slate-700">
+          Telefone *
+          <input
+            type="tel"
+            value={telefono}
+            onChange={(event) => setTelefono(event.target.value)}
+            required
+            className="w-full rounded-lg border border-slate-300 px-3 py-2"
+            placeholder="Telefone"
+          />
         </label>
 
         <label className="space-y-1 text-sm font-medium text-slate-700 sm:col-span-2">
-          Estado
-          <select
-            value={estado}
-            onChange={handleEstadoChange}
+          Data de nascimento *
+          <input
+            type="date"
+            value={fechaNacimiento}
+            onChange={(event) => setFechaNacimiento(event.target.value)}
+            max={new Date().toLocaleDateString("sv-SE")}
+            required
             className="w-full rounded-lg border border-slate-300 px-3 py-2"
-          >
-            <option value="activo">Activo</option>
-            <option value="inactivo">Inactivo</option>
-            <option value="en_espera">En espera</option>
-          </select>
+          />
         </label>
       </div>
 
-      {error && (
+      {erro && (
         <p role="alert" className="text-sm text-red-600">
-          {error}
+          {erro}
         </p>
       )}
 
       <button
         type="submit"
-        className="rounded-lg bg-teal-700 px-4 py-2 font-semibold text-white hover:bg-teal-800"
+        disabled={carregando}
+        className="rounded-lg bg-teal-700 px-4 py-2 font-semibold text-white hover:bg-teal-800 disabled:opacity-60"
       >
-        Agregar paciente
+        {carregando ? "Cadastrando..." : "Cadastrar paciente"}
       </button>
     </form>
   );
