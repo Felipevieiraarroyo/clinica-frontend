@@ -1,29 +1,41 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import axios from "axios";
-import { api } from "../services/api";
+import toast from "react-hot-toast";
+import {
+  buscarPacientePorId,
+  editarPaciente,
+  type Paciente,
+  type NovoPaciente,
+} from "../services/pacientes.service";
 
-interface PacienteAPI {
-  id: number;
-  nombre: string;
-  apellido: string;
-  email: string;
-  telefono: string;
-  fechaNacimiento: string;
+const formularioInicial: NovoPaciente = {
+  nombre: "",
+  apellido: "",
+  email: "",
+  telefono: "",
+  fechaNacimiento: "",
+};
+
+function formatarDataParaInput(data: string): string {
+  return data.slice(0, 10);
 }
 
 export function PaginaDetallePaciente() {
   const { id } = useParams<{ id: string }>();
 
-  const [paciente, setPaciente] = useState<PacienteAPI | null>(null);
+  const [paciente, setPaciente] = useState<Paciente | null>(null);
+  const [formulario, setFormulario] = useState<NovoPaciente>(formularioInicial);
   const [carregando, setCarregando] = useState(true);
+  const [salvando, setSalvando] = useState(false);
+  const [editando, setEditando] = useState(false);
   const [erro, setErro] = useState("");
 
   useEffect(() => {
     let ativo = true;
 
     async function carregarPaciente() {
-      if (!id || !/^\d+$/.test(id)) {
+      if (!id || !/^\d+$/.test(id) || Number(id) < 1) {
         setErro("O identificador do paciente é inválido.");
         setCarregando(false);
         return;
@@ -33,10 +45,17 @@ export function PaginaDetallePaciente() {
         setCarregando(true);
         setErro("");
 
-        const resposta = await api.get<PacienteAPI>(`/pacientes/${id}`);
+        const dados = await buscarPacientePorId(Number(id));
 
         if (ativo) {
-          setPaciente(resposta.data);
+          setPaciente(dados);
+          setFormulario({
+            nombre: dados.nombre,
+            apellido: dados.apellido,
+            email: dados.email,
+            telefono: dados.telefono,
+            fechaNacimiento: formatarDataParaInput(dados.fechaNacimiento),
+          });
         }
       } catch (error: unknown) {
         if (!ativo) return;
@@ -63,9 +82,7 @@ export function PaginaDetallePaciente() {
           setErro("Ocorreu um erro inesperado ao carregar o paciente.");
         }
       } finally {
-        if (ativo) {
-          setCarregando(false);
-        }
+        if (ativo) setCarregando(false);
       }
     }
 
@@ -75,6 +92,93 @@ export function PaginaDetallePaciente() {
       ativo = false;
     };
   }, [id]);
+
+  function handleChange(evento: ChangeEvent<HTMLInputElement>) {
+    const { name, value } = evento.target;
+
+    setFormulario((anterior) => ({
+      ...anterior,
+      [name]: value,
+    }));
+  }
+
+  function handleCancelar() {
+    if (!paciente) return;
+
+    setFormulario({
+      nombre: paciente.nombre,
+      apellido: paciente.apellido,
+      email: paciente.email,
+      telefono: paciente.telefono,
+      fechaNacimiento: formatarDataParaInput(paciente.fechaNacimiento),
+    });
+
+    setErro("");
+    setEditando(false);
+  }
+
+  async function handleSalvar(evento: FormEvent<HTMLFormElement>) {
+    evento.preventDefault();
+
+    if (!id || !paciente || salvando) return;
+
+    setSalvando(true);
+    setErro("");
+
+    try {
+      const atualizado = await editarPaciente(Number(id), {
+        nombre: formulario.nombre.trim(),
+        apellido: formulario.apellido.trim(),
+        email: formulario.email.trim(),
+        telefono: formulario.telefono.trim(),
+        fechaNacimiento: formulario.fechaNacimiento,
+      });
+
+      setPaciente(atualizado);
+      setFormulario({
+        nombre: atualizado.nombre,
+        apellido: atualizado.apellido,
+        email: atualizado.email,
+        telefono: atualizado.telefono,
+        fechaNacimiento: formatarDataParaInput(atualizado.fechaNacimiento),
+      });
+
+      setEditando(false);
+      toast.success("Paciente atualizado com sucesso!");
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 400) {
+          setErro("Confira os dados preenchidos e tente novamente.");
+        } else if (error.response?.status === 401) {
+          setErro("Sua sessão expirou. Faça login novamente.");
+        } else if (error.response?.status === 403) {
+          setErro("Você não tem permissão para editar pacientes.");
+        } else if (error.response?.status === 404) {
+          setErro("Este paciente não foi encontrado.");
+        } else if (error.response?.status === 409) {
+          setErro(
+            "Não foi possível atualizar. Verifique se o e-mail já está cadastrado.",
+          );
+        } else if (!error.response) {
+          setErro("Não foi possível conectar à API.");
+        } else {
+          setErro(
+            error.response.data?.error ??
+              `Erro ao atualizar o paciente (HTTP ${error.response.status}).`,
+          );
+        }
+      } else {
+        setErro("Ocorreu um erro inesperado ao atualizar o paciente.");
+      }
+
+      toast.error("Não foi possível salvar as alterações.");
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  const campoClasse =
+    "mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-slate-900 outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100";
 
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-8 sm:px-6 lg:px-10">
@@ -109,52 +213,196 @@ export function PaginaDetallePaciente() {
             role="alert"
             className="rounded-xl border border-red-200 bg-red-50 p-5 text-red-700"
           >
-            <p className="font-semibold">Não foi possível abrir os detalhes</p>
+            <p className="font-semibold">
+              {paciente
+                ? "Não foi possível salvar as alterações"
+                : "Não foi possível abrir os detalhes"}
+            </p>
             <p className="mt-1 text-sm">{erro}</p>
           </div>
         )}
 
-        {!carregando && !erro && paciente && (
+        {!carregando && paciente && (
           <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-            <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-teal-100 text-2xl font-bold text-teal-800">
-              {paciente.nombre.charAt(0)}
-              {paciente.apellido.charAt(0)}
-            </div>
+            {!editando ? (
+              <>
+                <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-teal-100 text-2xl font-bold text-teal-800">
+                  {paciente.nombre.charAt(0)}
+                  {paciente.apellido.charAt(0)}
+                </div>
 
-            <h2 className="text-2xl font-bold text-slate-900">
-              {paciente.nombre} {paciente.apellido}
-            </h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Código do paciente: {paciente.id}
-            </p>
-
-            <div className="mt-8 grid gap-6 sm:grid-cols-2">
-              <div>
-                <p className="text-sm text-slate-500">E-mail</p>
-                <p className="mt-1 wrap-break-word font-medium text-slate-900">
-                  {paciente.email}
+                <h2 className="text-2xl font-bold text-slate-900">
+                  {paciente.nombre} {paciente.apellido}
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  Código do paciente: {paciente.id}
                 </p>
-              </div>
 
-              <div>
-                <p className="text-sm text-slate-500">Telefone</p>
-                <p className="mt-1 font-medium text-slate-900">
-                  {paciente.telefono}
-                </p>
-              </div>
+                <div className="mt-8 grid gap-6 sm:grid-cols-2">
+                  <div>
+                    <p className="text-sm text-slate-500">E-mail</p>
+                    <p className="mt-1 wrap-break-word font-medium text-slate-900">
+                      {paciente.email}
+                    </p>
+                  </div>
 
-              <div>
-                <p className="text-sm text-slate-500">Data de nascimento</p>
-                <p className="mt-1 font-medium text-slate-900">
-                  {new Date(`${paciente.fechaNacimiento}`).toLocaleDateString(
-                    "pt-BR",
-                    {
-                      timeZone: "UTC",
-                    },
+                  <div>
+                    <p className="text-sm text-slate-500">Telefone</p>
+                    <p className="mt-1 font-medium text-slate-900">
+                      {paciente.telefono}
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="text-sm text-slate-500">Data de nascimento</p>
+                    <p className="mt-1 font-medium text-slate-900">
+                      {new Date(paciente.fechaNacimiento).toLocaleDateString(
+                        "pt-BR",
+                        { timeZone: "UTC" },
+                      )}
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setErro("");
+                    setEditando(true);
+                  }}
+                  className="mt-8 rounded-lg bg-teal-700 px-5 py-2.5 font-semibold text-white transition hover:bg-teal-800"
+                >
+                  Editar paciente
+                </button>
+              </>
+            ) : (
+              <>
+                <h2 className="text-xl font-bold text-slate-900">
+                  Editar dados do paciente
+                </h2>
+
+                <form onSubmit={handleSalvar} className="mt-6 space-y-5">
+                  <div className="grid gap-5 sm:grid-cols-2">
+                    <div>
+                      <label
+                        htmlFor="nombre"
+                        className="text-sm font-medium text-slate-700"
+                      >
+                        Nome
+                      </label>
+                      <input
+                        id="nombre"
+                        name="nombre"
+                        value={formulario.nombre}
+                        onChange={handleChange}
+                        className={campoClasse}
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label
+                        htmlFor="apellido"
+                        className="text-sm font-medium text-slate-700"
+                      >
+                        Sobrenome
+                      </label>
+                      <input
+                        id="apellido"
+                        name="apellido"
+                        value={formulario.apellido}
+                        onChange={handleChange}
+                        className={campoClasse}
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label
+                        htmlFor="email"
+                        className="text-sm font-medium text-slate-700"
+                      >
+                        E-mail
+                      </label>
+                      <input
+                        id="email"
+                        name="email"
+                        type="email"
+                        value={formulario.email}
+                        onChange={handleChange}
+                        className={campoClasse}
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label
+                        htmlFor="telefono"
+                        className="text-sm font-medium text-slate-700"
+                      >
+                        Telefone
+                      </label>
+                      <input
+                        id="telefono"
+                        name="telefono"
+                        type="tel"
+                        value={formulario.telefono}
+                        onChange={handleChange}
+                        className={campoClasse}
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label
+                        htmlFor="fechaNacimiento"
+                        className="text-sm font-medium text-slate-700"
+                      >
+                        Data de nascimento
+                      </label>
+                      <input
+                        id="fechaNacimiento"
+                        name="fechaNacimiento"
+                        type="date"
+                        value={formulario.fechaNacimiento}
+                        onChange={handleChange}
+                        max={new Date().toLocaleDateString("en-CA")}
+                        className={campoClasse}
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  {erro && (
+                    <p
+                      role="alert"
+                      className="rounded-lg bg-red-50 p-3 text-sm text-red-700"
+                    >
+                      {erro}
+                    </p>
                   )}
-                </p>
-              </div>
-            </div>
+
+                  <div className="flex flex-wrap gap-3 pt-2">
+                    <button
+                      type="submit"
+                      disabled={salvando}
+                      className="rounded-lg bg-teal-700 px-5 py-2.5 font-semibold text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {salvando ? "Salvando..." : "Salvar alterações"}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleCancelar}
+                      disabled={salvando}
+                      className="rounded-lg border border-slate-300 px-5 py-2.5 font-semibold text-slate-700 transition hover:bg-slate-100 disabled:opacity-60"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </form>
+              </>
+            )}
           </section>
         )}
       </div>

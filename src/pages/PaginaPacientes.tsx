@@ -10,8 +10,10 @@ import { useEffect, useState } from "react";
 import type { ChangeEvent } from "react";
 import { Link } from "react-router-dom";
 import axios from "axios";
-import { api } from "../services/api";
 import { FormularioPaciente } from "../components/FormularioPaciente";
+import { listarPacientes } from "../services/pacientes.service";
+import { excluirPaciente } from "../services/pacientes.service";
+import toast from "react-hot-toast";
 
 interface PacienteAPI {
   id: number;
@@ -38,14 +40,12 @@ export function PaginaPacientes() {
       setSucesso("");
 
       try {
-        const resposta = await api.get<PacienteAPI[]>("/pacientes");
+        const dados = await listarPacientes();
 
         if (!ativo) return;
 
-        setPacientes(resposta.data);
-        setSucesso(
-          `${resposta.data.length} paciente(s) carregado(s) com sucesso.`,
-        );
+        setPacientes(dados);
+        setSucesso(`${dados.length} paciente(s) carregado(s) com sucesso.`);
       } catch (error: unknown) {
         if (!ativo) return;
 
@@ -79,6 +79,42 @@ export function PaginaPacientes() {
       ativo = false;
     };
   }, []);
+
+  async function handleExcluirPaciente(paciente: PacienteAPI) {
+    const confirmado = window.confirm(
+      `Deseja realmente excluir ${paciente.nombre} ${paciente.apellido}?`,
+    );
+
+    if (!confirmado) return;
+
+    try {
+      await excluirPaciente(paciente.id);
+
+      setPacientes((anteriores) =>
+        anteriores.filter((item) => item.id !== paciente.id),
+      );
+
+      toast.success("Paciente apagado con exito!");
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 403) {
+          toast.error("No tienes permiso para apagar el paciente.");
+        } else if (error.response?.status === 404) {
+          toast.error("El paciente no fue encontrado.");
+        } else if (error.response?.status === 409) {
+          toast.error(
+            "No es posible apagar ese paciente porque puede que tenga citas asociadas.",
+          );
+        } else {
+          toast.error(
+            error.response?.data?.error ?? "No fue posible apagar al paciente.",
+          );
+        }
+      } else {
+        toast.error("Ocorrio un error al apagar el paciente.");
+      }
+    }
+  }
 
   const handlePacienteCriado = (paciente: PacienteAPI) => {
     setPacientes((anteriores) => [paciente, ...anteriores]);
@@ -237,6 +273,13 @@ export function PaginaPacientes() {
                               Ver detalhes →
                             </Link>
                           </td>
+                          <button
+                            type="button"
+                            onClick={() => void handleExcluirPaciente(paciente)}
+                            className="ml-4 text-sm font-semibold text-red-600 hover:text-red-800"
+                          >
+                            Excluir
+                          </button>
                         </tr>
                       ))}
                     </tbody>

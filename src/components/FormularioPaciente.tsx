@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import axios from "axios";
-import { api } from "../services/api";
+import { cadastrarPaciente } from "../services/pacientes.service";
 
 interface PacienteAPI {
   id: number;
@@ -41,7 +41,7 @@ export function FormularioPaciente({
     setCarregando(true);
 
     try {
-      const resposta = await api.post<PacienteAPI>("/pacientes", {
+      const paciente = await cadastrarPaciente({
         nombre: nombre.trim(),
         apellido: apellido.trim(),
         email: email.trim(),
@@ -49,7 +49,7 @@ export function FormularioPaciente({
         fechaNacimiento,
       });
 
-      onPacienteCriado(resposta.data);
+      onPacienteCriado(paciente);
       limparFormulario();
     } catch (error: unknown) {
       if (axios.isAxiosError(error)) {
