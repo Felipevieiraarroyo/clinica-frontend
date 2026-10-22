@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCitasStore } from "../stores/citasStore";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { citaSchema, type CitaformData } from "../schema/citaSchema";
@@ -7,7 +7,9 @@ import "./FormularioCita.css";
 
 export function FormularioCita() {
   const { medicos, cargando } = useMedicos();
-  const [citaAgendada, setCitaAgendada] = useState<CitaformData | null>(null);
+  const citaAgendada = useCitasStore((state) => state.citaSeleccionada);
+  const agregarCita = useCitasStore((state) => state.agregarCita);
+  const seleccionarCita = useCitasStore((state) => state.seleccionar);
 
   const {
     register,
@@ -28,12 +30,14 @@ export function FormularioCita() {
 
   const onSubmit = async (datos: CitaformData) => {
     await new Promise<void>((resolve) => setTimeout(resolve, 1500));
-    setCitaAgendada(datos);
+
+    const novaCita = agregarCita(datos);
+    seleccionarCita(novaCita.id);
   };
 
   const agendarOtraCita = () => {
     reset();
-    setCitaAgendada(null);
+    seleccionarCita("");
   };
 
   if (citaAgendada) {

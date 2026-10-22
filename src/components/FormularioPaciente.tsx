@@ -1,23 +1,16 @@
 import { useState, type FormEvent } from "react";
 import axios from "axios";
-import { cadastrarPaciente } from "../services/pacientes.service";
-
-interface PacienteAPI {
-  id: number;
-  nombre: string;
-  apellido: string;
-  email: string;
-  telefono: string;
-  fechaNacimiento: string;
-}
+import { usePacientesStore } from "../stores/pacientesStore";
+import type { Paciente } from "../services/pacientes.service";
 
 interface FormularioPacienteProps {
-  onPacienteCriado: (paciente: PacienteAPI) => void;
+  onPacienteCriado: (paciente: Paciente) => void;
 }
 
 export function FormularioPaciente({
   onPacienteCriado,
 }: FormularioPacienteProps) {
+  const crearPaciente = usePacientesStore((state) => state.crear);
   const [nombre, setNombre] = useState("");
   const [apellido, setApellido] = useState("");
   const [email, setEmail] = useState("");
@@ -41,7 +34,7 @@ export function FormularioPaciente({
     setCarregando(true);
 
     try {
-      const paciente = await cadastrarPaciente({
+      const paciente = await crearPaciente({
         nombre: nombre.trim(),
         apellido: apellido.trim(),
         email: email.trim(),

@@ -10,77 +10,35 @@ import { useEffect, useState } from "react";
 import type { ChangeEvent } from "react";
 import { Link } from "react-router-dom";
 import axios from "axios";
-import { FormularioPaciente } from "../components/FormularioPaciente";
-import { listarPacientes } from "../services/pacientes.service";
-import { excluirPaciente } from "../services/pacientes.service";
 import toast from "react-hot-toast";
 
-interface PacienteAPI {
-  id: number;
-  nombre: string;
-  apellido: string;
-  email: string;
-  telefono: string;
-  fechaNacimiento: string;
-}
+import { FormularioPaciente } from "../components/FormularioPaciente";
+import { usePacientesStore } from "../stores/pacientesStore";
+import type { Paciente } from "../services/pacientes.service";
+import { useFiltrosStore } from "../stores/filtrosStore";
 
 export function PaginaPacientes() {
-  const [pacientes, setPacientes] = useState<PacienteAPI[]>([]);
-  const [busqueda, setBusqueda] = useState("");
-  const [carregando, setCarregando] = useState(true);
+  const pacientes = usePacientesStore((state) => state.pacientes);
+  const carregando = usePacientesStore((state) => state.cargando);
+  const erroStore = usePacientesStore((state) => state.error);
+  const carregarPacientes = usePacientesStore((state) => state.cargar);
+  const excluirPacienteStore = usePacientesStore((state) => state.eliminar);
+
+  const busqueda = useFiltrosStore((state) => state.queryPacientes);
+  const setBusqueda = useFiltrosStore((state) => state.setQueryPacientes);
+
   const [erro, setErro] = useState("");
   const [sucesso, setSucesso] = useState("");
 
   useEffect(() => {
-    let ativo = true;
+    void carregarPacientes().catch(() => {
+      // O erro já é armazenado no Zustand.
+    });
+  }, [carregarPacientes]);
 
-    async function carregarPacientes() {
-      setCarregando(true);
-      setErro("");
-      setSucesso("");
+  const mensagemErro = erro || erroStore || "";
 
-      try {
-        const dados = await listarPacientes();
-
-        if (!ativo) return;
-
-        setPacientes(dados);
-        setSucesso(`${dados.length} paciente(s) carregado(s) com sucesso.`);
-      } catch (error: unknown) {
-        if (!ativo) return;
-
-        if (axios.isAxiosError(error)) {
-          if (error.response?.status === 401) {
-            setErro(
-              "Sessão ausente ou expirada. Faça login para consultar os pacientes.",
-            );
-          } else if (error.response?.status === 403) {
-            setErro(
-              "Seu usuário não tem permissão para consultar os pacientes. É necessário o papel RECEPCIONISTA.",
-            );
-          } else {
-            setErro(
-              error.response
-                ? `Não foi possível carregar os pacientes (HTTP ${error.response.status}).`
-                : "Não foi possível conectar à API. Confira se o backend está rodando em http://localhost:3000.",
-            );
-          }
-        } else {
-          setErro("Ocorreu um erro inesperado ao carregar os pacientes.");
-        }
-      } finally {
-        if (ativo) setCarregando(false);
-      }
-    }
-
-    void carregarPacientes();
-
-    return () => {
-      ativo = false;
-    };
-  }, []);
-
-  async function handleExcluirPaciente(paciente: PacienteAPI) {
+  async function handleExcluirPaciente(paciente: Paciente) {
     const confirmado = window.confirm(
       `Deseja realmente excluir ${paciente.nombre} ${paciente.apellido}?`,
     );
@@ -88,42 +46,39 @@ export function PaginaPacientes() {
     if (!confirmado) return;
 
     try {
-      await excluirPaciente(paciente.id);
+      await excluirPacienteStore(paciente.id);
 
-      setPacientes((anteriores) =>
-        anteriores.filter((item) => item.id !== paciente.id),
-      );
-
-      toast.success("Paciente apagado con exito!");
+      toast.success("Paciente apagado com sucesso!");
     } catch (error: unknown) {
       if (axios.isAxiosError(error)) {
         if (error.response?.status === 403) {
-          toast.error("No tienes permiso para apagar el paciente.");
+          toast.error("Você não tem permissão para excluir este paciente.");
         } else if (error.response?.status === 404) {
-          toast.error("El paciente no fue encontrado.");
+          toast.error("Paciente não encontrado.");
         } else if (error.response?.status === 409) {
           toast.error(
-            "No es posible apagar ese paciente porque puede que tenga citas asociadas.",
+            "Não é possível excluir este paciente porque ele pode ter consultas associadas.",
           );
         } else {
           toast.error(
-            error.response?.data?.error ?? "No fue posible apagar al paciente.",
+            error.response?.data?.error ??
+              "Não foi possível excluir o paciente.",
           );
         }
       } else {
-        toast.error("Ocorrio un error al apagar el paciente.");
+        toast.error("Ocorreu um erro ao excluir o paciente.");
       }
     }
   }
 
-  const handlePacienteCriado = (paciente: PacienteAPI) => {
-    setPacientes((anteriores) => [paciente, ...anteriores]);
+  const handlePacienteCriado = (paciente: Paciente) => {
     setBusqueda("");
     setErro("");
     setSucesso(
       `Paciente ${paciente.nombre} ${paciente.apellido} cadastrado com sucesso!`,
     );
   };
+
   const pacientesFiltrados = pacientes.filter((paciente) => {
     const texto = busqueda.trim().toLowerCase();
     const nomeCompleto =
@@ -177,7 +132,7 @@ export function PaginaPacientes() {
           </div>
         )}
 
-        {!carregando && erro && (
+        {!carregando && mensagemErro && (
           <div
             role="alert"
             className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700"
@@ -185,7 +140,7 @@ export function PaginaPacientes() {
             <p className="font-semibold">
               Não foi possível carregar os pacientes
             </p>
-            <p className="mt-1 text-sm">{erro}</p>
+            <p className="mt-1 text-sm">{mensagemErro}</p>
             <button
               type="button"
               onClick={() => window.location.reload()}
