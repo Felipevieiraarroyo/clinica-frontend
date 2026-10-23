@@ -2,12 +2,8 @@ import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import axios from "axios";
 import toast from "react-hot-toast";
-import {
-  buscarPacientePorId,
-  editarPaciente,
-  type Paciente,
-  type NovoPaciente,
-} from "../services/pacientes.service";
+import { type NovoPaciente } from "../services/pacientes.service";
+import { usePacientesStore } from "../stores/pacientesStore";
 
 const formularioInicial: NovoPaciente = {
   nombre: "",
@@ -24,9 +20,15 @@ function formatarDataParaInput(data: string): string {
 export function PaginaDetallePaciente() {
   const { id } = useParams<{ id: string }>();
 
-  const [paciente, setPaciente] = useState<Paciente | null>(null);
+  const pacientes = usePacientesStore((state) => state.pacientes);
+  const carregarPacientes = usePacientesStore((state) => state.cargar);
+  const atualizarPaciente = usePacientesStore((state) => state.actualizar);
+
+  const paciente = pacientes.find((item) => item.id === Number(id)) ?? null;
+
   const [formulario, setFormulario] = useState<NovoPaciente>(formularioInicial);
   const [carregando, setCarregando] = useState(true);
+
   const [salvando, setSalvando] = useState(false);
   const [editando, setEditando] = useState(false);
   const [erro, setErro] = useState("");
@@ -41,29 +43,37 @@ export function PaginaDetallePaciente() {
         return;
       }
 
+      setCarregando(true);
+      setErro("");
+
       try {
-        setCarregando(true);
-        setErro("");
+        await carregarPacientes();
 
-        const dados = await buscarPacientePorId(Number(id));
+        if (!ativo) return;
 
-        if (ativo) {
-          setPaciente(dados);
-          setFormulario({
-            nombre: dados.nombre,
-            apellido: dados.apellido,
-            email: dados.email,
-            telefono: dados.telefono,
-            fechaNacimiento: formatarDataParaInput(dados.fechaNacimiento),
-          });
+        const pacienteEncontrado = usePacientesStore
+          .getState()
+          .pacientes.find((item) => item.id === Number(id));
+
+        if (!pacienteEncontrado) {
+          setErro("Paciente não encontrado.");
+          return;
         }
+
+        setFormulario({
+          nombre: pacienteEncontrado.nombre,
+          apellido: pacienteEncontrado.apellido,
+          email: pacienteEncontrado.email,
+          telefono: pacienteEncontrado.telefono,
+          fechaNacimiento: formatarDataParaInput(
+            pacienteEncontrado.fechaNacimiento,
+          ),
+        });
       } catch (error: unknown) {
         if (!ativo) return;
 
         if (axios.isAxiosError(error)) {
-          if (error.response?.status === 404) {
-            setErro("Paciente não encontrado.");
-          } else if (error.response?.status === 401) {
+          if (error.response?.status === 401) {
             setErro("Sua sessão expirou ou você precisa fazer login.");
           } else if (error.response?.status === 403) {
             setErro(
@@ -74,9 +84,7 @@ export function PaginaDetallePaciente() {
               `Não foi possível carregar o paciente (HTTP ${error.response.status}).`,
             );
           } else {
-            setErro(
-              "Não foi possível conectar à API. Confira se o backend está funcionando.",
-            );
+            setErro("Não foi possível conectar à API.");
           }
         } else {
           setErro("Ocorreu um erro inesperado ao carregar o paciente.");
@@ -91,7 +99,7 @@ export function PaginaDetallePaciente() {
     return () => {
       ativo = false;
     };
-  }, [id]);
+  }, [id, carregarPacientes]);
 
   function handleChange(evento: ChangeEvent<HTMLInputElement>) {
     const { name, value } = evento.target;
@@ -126,7 +134,7 @@ export function PaginaDetallePaciente() {
     setErro("");
 
     try {
-      const atualizado = await editarPaciente(Number(id), {
+      const atualizado = await atualizarPaciente(Number(id), {
         nombre: formulario.nombre.trim(),
         apellido: formulario.apellido.trim(),
         email: formulario.email.trim(),
@@ -134,7 +142,6 @@ export function PaginaDetallePaciente() {
         fechaNacimiento: formulario.fechaNacimiento,
       });
 
-      setPaciente(atualizado);
       setFormulario({
         nombre: atualizado.nombre,
         apellido: atualizado.apellido,
@@ -144,7 +151,7 @@ export function PaginaDetallePaciente() {
       });
 
       setEditando(false);
-      toast.success("Paciente atualizado com sucesso!");
+      toast.success("Paciente actualizado con exito!");
     } catch (error: unknown) {
       if (axios.isAxiosError(error)) {
         if (error.response?.status === 400) {
