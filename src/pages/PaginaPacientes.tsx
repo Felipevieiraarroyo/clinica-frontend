@@ -16,6 +16,7 @@ import { FormularioPaciente } from "../components/FormularioPaciente";
 import { usePacientesStore } from "../stores/pacientesStore";
 import type { Paciente } from "../services/pacientes.service";
 import { useFiltrosStore } from "../stores/filtrosStore";
+import { useDebounce } from "../hooks/useDebounce";
 
 export function PaginaPacientes() {
   const pacientes = usePacientesStore((state) => state.pacientes);
@@ -26,15 +27,17 @@ export function PaginaPacientes() {
 
   const busqueda = useFiltrosStore((state) => state.queryPacientes);
   const setBusqueda = useFiltrosStore((state) => state.setQueryPacientes);
+  const resetFiltros = useFiltrosStore((state) => state.resetFiltros);
+
+  const busquedaDebounced = useDebounce(busqueda, 350);
+  const buscando = busqueda !== busquedaDebounced;
 
   const [erro, setErro] = useState("");
   const [sucesso, setSucesso] = useState("");
 
   useEffect(() => {
-    void carregarPacientes().catch(() => {
-      // O erro já é armazenado no Zustand.
-    });
-  }, [carregarPacientes]);
+    void carregarPacientes(busquedaDebounced, true).catch(() => {});
+  }, [carregarPacientes, busquedaDebounced]);
 
   const mensagemErro = erro || erroStore || "";
 
@@ -79,18 +82,9 @@ export function PaginaPacientes() {
     );
   };
 
-  const pacientesFiltrados = pacientes.filter((paciente) => {
-    const texto = busqueda.trim().toLowerCase();
-    const nomeCompleto =
-      `${paciente.nombre} ${paciente.apellido}`.toLowerCase();
+  const pacientesFiltrados = pacientes;
 
-    return (
-      nomeCompleto.includes(texto) ||
-      paciente.email.toLowerCase().includes(texto)
-    );
-  });
-
-  const limparFiltros = () => setBusqueda("");
+  const limparFiltros = () => resetFiltros();
 
   const handleBuscaChange = (event: ChangeEvent<HTMLInputElement>) => {
     setBusqueda(event.target.value);
@@ -123,7 +117,7 @@ export function PaginaPacientes() {
           </p>
         </section>
 
-        {carregando && (
+        {carregando && pacientes.length === 0 && (
           <div
             role="status"
             className="rounded-xl bg-teal-50 p-4 text-teal-800"
@@ -131,6 +125,27 @@ export function PaginaPacientes() {
             Carregando pacientes...
           </div>
         )}
+        <label className="flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm sm:max-w-xl sm:flex-1">
+          <span aria-hidden="true">🔎</span>
+
+          <input
+            type="search"
+            value={busqueda}
+            onChange={handleBuscaChange}
+            placeholder="Buscar por nombre, apellido o correo... "
+            aria-label="Buscar pacientes"
+            className="w-full bg-transparent text-sm text-slate-800 outline-none"
+            disabled={carregando || Boolean(erro)}
+          />
+
+          {buscando && (
+            <span
+              role="status"
+              aria-label="Aguardando busqueda"
+              className="size-4 shrink-0 animate-spin rounded-full border-2 border-slate-300 border-t-teal-600"
+            ></span>
+          )}
+        </label>
 
         {!carregando && mensagemErro && (
           <div
@@ -202,57 +217,63 @@ export function PaginaPacientes() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {pacientesFiltrados.map((paciente) => (
-                        <tr key={paciente.id} className="hover:bg-slate-50">
-                          <td className="px-5 py-4">
-                            <p className="font-semibold text-slate-900">
-                              {paciente.nombre} {paciente.apellido}
-                            </p>
-                            <p className="mt-1 text-sm text-slate-500">
-                              {paciente.email}
-                            </p>
-                          </td>
-                          <td className="px-5 py-4 text-sm text-slate-600">
-                            {paciente.telefono}
-                          </td>
-                          <td className="px-5 py-4 text-sm text-slate-600">
-                            {new Date(
-                              paciente.fechaNacimiento,
-                            ).toLocaleDateString("pt-BR")}
-                          </td>
-                          <td className="px-5 py-4">
-                            <Link
-                              to={`/pacientes/${paciente.id}`}
-                              className="text-sm font-semibold text-teal-700 hover:text-teal-900"
-                            >
-                              Ver detalhes →
-                            </Link>
-                          </td>
-                          <button
-                            type="button"
-                            onClick={() => void handleExcluirPaciente(paciente)}
-                            className="ml-4 text-sm font-semibold text-red-600 hover:text-red-800"
+                      {pacientesFiltrados.length === 0 ? (
+                        <tr>
+                          <td
+                            colSpan={4}
+                            className="px-5 py-10 text-center text-slate-500"
                           >
-                            Excluir
-                          </button>
+                            <p className="font-semibold text-slate-700">
+                              Ningún paciente encontrado.
+                            </p>
+                            <p className="mt-1 text-sm">
+                              Busque por otro nombre o correo electrónico.
+                            </p>
+                          </td>
                         </tr>
-                      ))}
+                      ) : (
+                        pacientesFiltrados.map((paciente) => (
+                          <tr key={paciente.id} className="hover:bg-slate-50">
+                            <td className="px-5 py-4">
+                              <p className="font-semibold text-slate-900">
+                                {paciente.nombre} {paciente.apellido}
+                              </p>
+                              <p className="mt-1 text-sm text-slate-500">
+                                {paciente.email}
+                              </p>
+                            </td>
+                            <td className="px-5 py-4 text-sm text-slate-600">
+                              {paciente.telefono}
+                            </td>
+                            <td className="px-5 py-4 text-sm text-slate-600">
+                              {new Date(
+                                paciente.fechaNacimiento,
+                              ).toLocaleDateString("pt-BR")}
+                            </td>
+                            <td className="px-5 py-4">
+                              <Link
+                                to={`/pacientes/${paciente.id}`}
+                                className="text-sm font-semibold text-teal-700 hover:text-teal-900"
+                              >
+                                Ver detalles →
+                              </Link>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  void handleExcluirPaciente(paciente)
+                                }
+                                className="ml-4 text-sm font-semibold text-red-600 hover:text-red-800"
+                              >
+                                Excluir
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>
               </div>
-
-              {pacientesFiltrados.length === 0 && (
-                <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-12 text-center">
-                  <p className="font-semibold text-slate-800">
-                    Nenhum paciente encontrado
-                  </p>
-                  <p className="mt-2 text-sm text-slate-500">
-                    Tente outro nome, sobrenome ou e-mail.
-                  </p>
-                </div>
-              )}
-
               <p className="text-sm text-slate-500" aria-live="polite">
                 {pacientesFiltrados.length} paciente(s) encontrado(s)
               </p>

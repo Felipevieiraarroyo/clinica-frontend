@@ -14,7 +14,7 @@ interface PacientesState {
   cargando: boolean;
   error: string | null;
 
-  cargar: (query?: string) => Promise<void>;
+  cargar: (query?: string, silencioso?: boolean) => Promise<void>;
   crear: (datos: NovoPaciente) => Promise<Paciente>;
   actualizar: (id: number, datos: NovoPaciente) => Promise<Paciente>;
   eliminar: (id: number) => Promise<void>;
@@ -35,31 +35,23 @@ export const usePacientesStore = create<PacientesState>()(
       cargando: false,
       error: null,
 
-      cargar: async (query) => {
-        set({ cargando: true, error: null });
+      cargar: async (query, silencioso = false) => {
+        if (!silencioso) {
+          set({ cargando: true, error: null });
+        } else {
+          set({ error: null });
+        }
 
         try {
-          const datos = await listarPacientes();
-          const texto = query?.trim().toLowerCase() ?? "";
-
-          const pacientesFiltrados = texto
-            ? datos.filter((paciente) => {
-                const nombreCompleto =
-                  `${paciente.nombre} ${paciente.apellido}`.toLowerCase();
-
-                return (
-                  nombreCompleto.includes(texto) ||
-                  paciente.email.toLowerCase().includes(texto)
-                );
-              })
-            : datos;
-
-          set({ pacientes: pacientesFiltrados });
+          const datos = await listarPacientes(query);
+          set({ pacientes: datos });
         } catch (error: unknown) {
           set({ error: obtenerMensajeError(error) });
           throw error;
         } finally {
-          set({ cargando: false });
+          if (!silencioso) {
+            set({ cargando: false });
+          }
         }
       },
 
