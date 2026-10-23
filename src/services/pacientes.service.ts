@@ -17,8 +17,10 @@ export interface NovoPaciente {
   fechaNacimiento: string;
 }
 
-export async function listarPacientes(): Promise<Paciente[]> {
-  const resposta = await api.get<Paciente[]>("/pacientes");
+export async function listarPacientes(query?: string): Promise<Paciente[]> {
+  const params = query?.trim() ? { query: query.trim() } : undefined;
+
+  const resposta = await api.get<Paciente[]>("/pacientes", { params });
   return resposta.data;
 }
 
