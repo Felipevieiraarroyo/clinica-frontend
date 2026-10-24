@@ -1,24 +1,17 @@
 import { api } from "./api";
+import type { Paciente } from "../types/paciente-api";
+import type { CrearPacienteDTO, ActualizarPacienteDTO } from "../types/dtos";
 
-export interface Paciente {
-  id: number;
-  nombre: string;
-  apellido: string;
-  email: string;
-  telefono: string;
-  fechaNacimiento: string;
-}
+export type { Paciente } from "../types/paciente-api";
+export type { CrearPacienteDTO, ActualizarPacienteDTO } from "../types/dtos";
 
-export interface NovoPaciente {
-  nombre: string;
-  apellido: string;
-  email: string;
-  telefono: string;
-  fechaNacimiento: string;
-}
+export async function listarPacientes(query?: string): Promise<Paciente[]> {
+  const params = query?.trim() ? { query: query.trim() } : undefined;
 
-export async function listarPacientes(): Promise<Paciente[]> {
-  const resposta = await api.get<Paciente[]>("/pacientes");
+  const resposta = await api.get<Paciente[]>("/pacientes", {
+    params,
+  });
+
   return resposta.data;
 }
 
@@ -28,7 +21,7 @@ export async function buscarPacientePorId(id: number): Promise<Paciente> {
 }
 
 export async function cadastrarPaciente(
-  dados: NovoPaciente,
+  dados: CrearPacienteDTO,
 ): Promise<Paciente> {
   const resposta = await api.post<Paciente>("/pacientes", dados);
   return resposta.data;
@@ -36,9 +29,10 @@ export async function cadastrarPaciente(
 
 export async function editarPaciente(
   id: number,
-  dados: NovoPaciente,
+  dados: ActualizarPacienteDTO,
 ): Promise<Paciente> {
   const resposta = await api.put<Paciente>(`/pacientes/${id}`, dados);
+
   return resposta.data;
 }
 
