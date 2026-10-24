@@ -5,9 +5,10 @@ import {
   cadastrarPaciente,
   editarPaciente,
   excluirPaciente,
-  type Paciente,
-  type NovoPaciente,
 } from "../services/pacientes.service";
+import type { Paciente } from "../types/paciente-api";
+import type { CrearPacienteDTO, ActualizarPacienteDTO } from "../types/dtos";
+import { extraerMensajeError } from "../lib/errorHandler";
 
 interface PacientesState {
   pacientes: Paciente[];
@@ -15,17 +16,9 @@ interface PacientesState {
   error: string | null;
 
   cargar: (query?: string, silencioso?: boolean) => Promise<void>;
-  crear: (datos: NovoPaciente) => Promise<Paciente>;
-  actualizar: (id: number, datos: NovoPaciente) => Promise<Paciente>;
+  crear: (datos: CrearPacienteDTO) => Promise<Paciente>;
+  actualizar: (id: number, datos: ActualizarPacienteDTO) => Promise<Paciente>;
   eliminar: (id: number) => Promise<void>;
-}
-
-function obtenerMensajeError(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  return "Ocurrió un error al gestionar los pacientes.";
 }
 
 export const usePacientesStore = create<PacientesState>()(
@@ -46,7 +39,7 @@ export const usePacientesStore = create<PacientesState>()(
           const datos = await listarPacientes(query);
           set({ pacientes: datos });
         } catch (error: unknown) {
-          set({ error: obtenerMensajeError(error) });
+          set({ error: extraerMensajeError(error) });
           throw error;
         } finally {
           if (!silencioso) {
@@ -67,7 +60,7 @@ export const usePacientesStore = create<PacientesState>()(
 
           return nuevoPaciente;
         } catch (error: unknown) {
-          set({ error: obtenerMensajeError(error) });
+          set({ error: extraerMensajeError(error) });
           throw error;
         }
       },
@@ -86,7 +79,7 @@ export const usePacientesStore = create<PacientesState>()(
 
           return pacienteAtualizado;
         } catch (error: unknown) {
-          set({ error: obtenerMensajeError(error) });
+          set({ error: extraerMensajeError(error) });
           throw error;
         }
       },
@@ -101,7 +94,7 @@ export const usePacientesStore = create<PacientesState>()(
             pacientes: state.pacientes.filter((paciente) => paciente.id !== id),
           }));
         } catch (error: unknown) {
-          set({ error: obtenerMensajeError(error) });
+          set({ error: extraerMensajeError(error) });
           throw error;
         }
       },

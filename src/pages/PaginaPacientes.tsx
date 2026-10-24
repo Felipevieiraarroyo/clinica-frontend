@@ -17,6 +17,7 @@ import { usePacientesStore } from "../stores/pacientesStore";
 import type { Paciente } from "../services/pacientes.service";
 import { useFiltrosStore } from "../stores/filtrosStore";
 import { useDebounce } from "../hooks/useDebounce";
+import { extraerMensajeError } from "../lib/errorHandler";
 
 export function PaginaPacientes() {
   const pacientes = usePacientesStore((state) => state.pacientes);
@@ -36,8 +37,10 @@ export function PaginaPacientes() {
   const [sucesso, setSucesso] = useState("");
 
   useEffect(() => {
-    void carregarPacientes(busquedaDebounced, true).catch(() => {});
-  }, [carregarPacientes, busquedaDebounced]);
+    void carregarPacientes(busquedaDebounced, true).catch((error: unknown) => {
+      setErro(extraerMensajeError(error));
+    });
+  });
 
   const mensagemErro = erro || erroStore || "";
 
@@ -63,13 +66,10 @@ export function PaginaPacientes() {
             "Não é possível excluir este paciente porque ele pode ter consultas associadas.",
           );
         } else {
-          toast.error(
-            error.response?.data?.error ??
-              "Não foi possível excluir o paciente.",
-          );
+          toast.error(extraerMensajeError(error));
         }
       } else {
-        toast.error("Ocorreu um erro ao excluir o paciente.");
+        toast.error(extraerMensajeError(error));
       }
     }
   }

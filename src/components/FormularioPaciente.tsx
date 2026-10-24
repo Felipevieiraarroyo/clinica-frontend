@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from "react";
 import axios from "axios";
 import { usePacientesStore } from "../stores/pacientesStore";
-import type { Paciente } from "../services/pacientes.service";
+import type { Paciente } from "../types/paciente-api";
+import { extraerMensajeError } from "../lib/errorHandler";
 
 interface FormularioPacienteProps {
   onPacienteCriado: (paciente: Paciente) => void;
@@ -45,6 +46,7 @@ export function FormularioPaciente({
       onPacienteCriado(paciente);
       limparFormulario();
     } catch (error: unknown) {
+      setErro(extraerMensajeError(error));
       if (axios.isAxiosError(error)) {
         if (error.response?.status === 400) {
           const detalhes = error.response.data?.details;

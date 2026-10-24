@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { api } from "../services/api";
+import { extraerMensajeError } from "../lib/errorHandler";
 
 interface RespostaLogin {
   token: string;
@@ -33,6 +34,7 @@ export function PaginaLogin() {
         if (error.response?.status === 401) {
           setErro("E-mail o contraseña estan incorrectos.");
         } else {
+          setErro(extraerMensajeError(error));
           setErro(
             error.response?.data?.message ??
               "No fue posible conectar al servidor.",
