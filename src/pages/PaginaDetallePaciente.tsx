@@ -2,10 +2,11 @@ import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import axios from "axios";
 import toast from "react-hot-toast";
-import { type NovoPaciente } from "../services/pacientes.service";
+import { type CrearPacienteDTO } from "../types/dtos";
 import { usePacientesStore } from "../stores/pacientesStore";
+import { extraerMensajeError } from "../lib/errorHandler";
 
-const formularioInicial: NovoPaciente = {
+const formularioInicial: CrearPacienteDTO = {
   nombre: "",
   apellido: "",
   email: "",
@@ -26,7 +27,8 @@ export function PaginaDetallePaciente() {
 
   const paciente = pacientes.find((item) => item.id === Number(id)) ?? null;
 
-  const [formulario, setFormulario] = useState<NovoPaciente>(formularioInicial);
+  const [formulario, setFormulario] =
+    useState<CrearPacienteDTO>(formularioInicial);
   const [carregando, setCarregando] = useState(true);
 
   const [salvando, setSalvando] = useState(false);
@@ -70,6 +72,7 @@ export function PaginaDetallePaciente() {
           ),
         });
       } catch (error: unknown) {
+        setErro(extraerMensajeError(error));
         if (!ativo) return;
 
         if (axios.isAxiosError(error)) {
@@ -153,6 +156,7 @@ export function PaginaDetallePaciente() {
       setEditando(false);
       toast.success("Paciente actualizado con exito!");
     } catch (error: unknown) {
+      setErro(extraerMensajeError(error));
       if (axios.isAxiosError(error)) {
         if (error.response?.status === 400) {
           setErro("Confira os dados preenchidos e tente novamente.");

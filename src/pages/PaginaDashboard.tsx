@@ -5,6 +5,9 @@ import { MetricCard } from "../components/MetricCard";
 import { StatusBadge } from "../components/StatusBadge";
 import { api } from "../services/api";
 import type { Metrica } from "../types";
+import { extraerMensajeError } from "../lib/errorHandler";
+import { GraficoEspecialidades } from "../components/GraficoEspecialidades";
+import { obterPerfilToken } from "../lib/auth";
 
 interface Paciente {
   id: number;
@@ -33,6 +36,12 @@ interface TotaisDashboard {
   programadas: number;
   completadasHoy: number;
 }
+interface CorteDiario {
+  estado: "PROGRAMADA" | "COMPLETADA" | "CANCELADA";
+  _count: {
+    estado: number;
+  };
+}
 
 function extrairLista<T>(resposta: ListaResposta<T>): T[] {
   if (Array.isArray(resposta)) {
@@ -60,6 +69,8 @@ function esHoy(fechaHora: string): boolean {
 
 export function PaginaDashboard() {
   const navigate = useNavigate();
+  const perfil = obterPerfilToken();
+  const ehGerencia = perfil === "GERENCIA";
 
   const [mantenimiento, setMantenimiento] = useState(false);
   const [cargando, setCargando] = useState(true);
@@ -76,6 +87,40 @@ export function PaginaDashboard() {
     setErro("");
 
     try {
+      if (ehGerencia) {
+        const hoje = new Date();
+        const ano = hoje.getFullYear();
+        const mes = String(hoje.getMonth() + 1).padStart(2, "0");
+        const dia = String(hoje.getDate()).padStart(2, "0");
+        const dataHoje = `${ano}-${mes}-${dia}`;
+
+        const [resMedicos, resProgramadas, resCorte] = await Promise.all([
+          api.get<ListaResposta<Medico>>("/medicos"),
+          api.get<ListaResposta<Consulta>>("/appointments", {
+            params: { estado: "PROGRAMADA" },
+          }),
+          api.get<CorteDiario[]>("/reports/daily-cutoff", {
+            params: { date: dataHoje },
+          }),
+        ]);
+
+        const medicos = extrairLista(resMedicos.data);
+        const programadas = extrairLista(resProgramadas.data);
+
+        const completadasHoy =
+          resCorte.data.find((item) => item.estado === "COMPLETADA")?._count
+            .estado ?? 0;
+
+        setTotais({
+          pacientes: 0,
+          medicos: medicos.length,
+          programadas: programadas.length,
+          completadasHoy,
+        });
+
+        return;
+      }
+
       const [resPacientes, resMedicos, resProgramadas, resCompletadas] =
         await Promise.all([
           api.get<ListaResposta<Paciente>>("/pacientes"),
@@ -114,6 +159,7 @@ export function PaginaDashboard() {
         ).length,
       });
     } catch (error: unknown) {
+      setErro(extraerMensajeError(error));
       if (axios.isAxiosError(error)) {
         if (error.response?.status === 403) {
           setErro("Seu usuário não tem permissão para consultar os dados.");
@@ -138,7 +184,7 @@ export function PaginaDashboard() {
 
   useEffect(() => {
     void carregarDados();
-  }, [carregarDados]);
+  }, [ehGerencia]);
 
   const metricas: Metrica[] = [
     {
@@ -188,14 +234,15 @@ export function PaginaDashboard() {
 
         <div className="flex flex-wrap items-center gap-3">
           <StatusBadge activo={!mantenimiento} />
-
-          <button
-            type="button"
-            onClick={() => navigate("/pacientes")}
-            className="rounded-lg bg-teal-700 px-4 py-2 font-semibold text-white transition hover:bg-teal-800"
-          >
-            Ver pacientes
-          </button>
+          {!ehGerencia && (
+            <button
+              type="button"
+              onClick={() => navigate("/pacientes")}
+              className="rounded-lg bg-teal-700 px-4 py-2 font-semibold text-white transition hover:bg-teal-800"
+            >
+              Ver pacientes
+            </button>
+          )}
         </div>
       </header>
 
@@ -235,10 +282,14 @@ export function PaginaDashboard() {
         className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4"
         aria-label="Métricas da clínica"
       >
-        {metricas.map((metrica) => (
-          <MetricCard key={metrica.id} metrica={metrica} />
-        ))}
+        {metricas
+          .filter((metrica) => !ehGerencia || metrica.id !== "pacientes")
+          .map((metrica) => (
+            <MetricCard key={metrica.id} metrica={metrica} />
+          ))}
       </section>
+
+      {ehGerencia && <GraficoEspecialidades />}
 
       <section className="rounded-xl bg-white p-6 shadow-sm">
         <h2 className="text-lg font-semibold text-slate-800">
