@@ -15,12 +15,10 @@ export default function App() {
       <Route path="/login" element={<PaginaLogin />} />
       <Route path="/acesso-negado" element={<PaginaAcessoNegado />} />
 
-      {/* Todas as páginas abaixo exigem autenticação */}
       <Route element={<RotaProtegida />}>
         <Route element={<Layout />}>
-          {/* Dashboard geral: Gerência e Recepcionista */}
+          {/* Dashboard: Gerência e Recepcionista */}
           <Route
-            path="/"
             element={
               <RotaProtegida allowedRoles={["GERENCIA", "RECEPCIONISTA"]} />
             }
@@ -28,18 +26,18 @@ export default function App() {
             <Route index element={<PaginaDashboard />} />
           </Route>
 
-          {/* Gestão de pacientes: somente Recepcionista */}
+          {/* Pacientes e novas consultas: somente Recepcionista */}
           <Route element={<RotaProtegida allowedRoles={["RECEPCIONISTA"]} />}>
-            <Route path="/pacientes" element={<PaginaPacientes />} />
-            <Route path="/pacientes/:id" element={<PaginaDetallePaciente />} />
-            <Route path="/citas/nueva" element={<PaginaNuevaCita />} />
+            <Route path="pacientes" element={<PaginaPacientes />} />
+            <Route path="pacientes/:id" element={<PaginaDetallePaciente />} />
+            <Route path="citas/nueva" element={<PaginaNuevaCita />} />
           </Route>
 
           <Route path="*" element={<PaginaNotFound />} />
         </Route>
       </Route>
 
-      {/* Endereços desconhecidos */}
+      {/* Redirecionamento de endereços externos ao sistema */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

@@ -1,45 +1,25 @@
 import axios from "axios";
 
-interface DadosErroAPI {
-  message?: unknown;
-  error?: unknown;
-}
+export function extraerMensajeError(error: unknown): string {
+  if (axios.isAxiosError(error)) {
+    const mensaje = error.response?.data?.message;
 
-function obterTexto(valor: unknown): string | null {
-  if (typeof valor === "string" && valor.trim()) {
-    return valor;
-  }
-
-  if (
-    Array.isArray(valor) &&
-    valor.every((item): item is string => typeof item === "string")
-  ) {
-    return valor.join(" ");
-  }
-
-  return null;
-}
-
-export function extraerMensajeError(err: unknown): string {
-  if (axios.isAxiosError<DadosErroAPI>(err)) {
-    const dados = err.response?.data;
-
-    const mensagem = obterTexto(dados?.message) ?? obterTexto(dados?.error);
-
-    if (mensagem) {
-      return mensagem;
+    if (typeof mensaje === "string" && mensaje.trim()) {
+      return mensaje;
     }
 
-    if (err.response) {
-      return `Erro do servidor (HTTP ${err.response.status}).`;
+    if (error.response?.status === 401) {
+      return "El email o la contraseña son incorrectos.";
     }
 
-    return "Não foi possível conectar à API.";
+    if (!error.response) {
+      return "No fue posible conectar al servidor.";
+    }
   }
 
-  if (err instanceof Error) {
-    return err.message;
+  if (error instanceof Error && error.message) {
+    return error.message;
   }
 
-  return "Erro inesperado.";
+  return "Ocurrió un error inesperado.";
 }

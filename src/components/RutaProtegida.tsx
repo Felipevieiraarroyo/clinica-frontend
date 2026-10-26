@@ -1,22 +1,19 @@
 import { Navigate, Outlet } from "react-router-dom";
-import { obterPerfilToken, type Role } from "../lib/auth";
+import { useAuthStore } from "../stores/authStore";
 
 interface RotaProtegidaProps {
-  allowedRoles?: Role[];
+  allowedRoles?: string[];
 }
 
 export function RotaProtegida({ allowedRoles }: RotaProtegidaProps) {
-  const token = localStorage.getItem("token");
-  const perfil = obterPerfilToken();
+  const token = useAuthStore((state) => state.token);
+  const usuario = useAuthStore((state) => state.usuario);
 
-  // Sem token válido, volta para o login.
-  if (!token || !perfil) {
-    localStorage.removeItem("token");
+  if (!token) {
     return <Navigate to="/login" replace />;
   }
 
-  // Com token válido, mas sem permissão, bloqueia a página.
-  if (allowedRoles && !allowedRoles.includes(perfil)) {
+  if (allowedRoles && (!usuario || !allowedRoles.includes(usuario.rol))) {
     return <Navigate to="/acesso-negado" replace />;
   }
 

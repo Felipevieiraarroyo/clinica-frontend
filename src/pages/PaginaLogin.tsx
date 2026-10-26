@@ -1,52 +1,47 @@
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
-import { api } from "../services/api";
-import { extraerMensajeError } from "../lib/errorHandler";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import toast from "react-hot-toast";
 
-interface RespostaLogin {
-  token: string;
-}
+import { loginSchema, type LoginFormData } from "../schemas/loginSchema";
+import { login } from "../services/auth";
+import { useAuthStore } from "../stores/authStore";
+import { extraerMensajeError } from "../lib/errorHandler";
 
 export function PaginaLogin() {
   const navigate = useNavigate();
-
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [erro, setErro] = useState("");
+  const setAuth = useAuthStore((state) => state.login);
   const [carregando, setCarregando] = useState(false);
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setErro("");
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<LoginFormData>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      email: "",
+      password: "",
+    },
+  });
+
+  const onSubmit = async (datos: LoginFormData) => {
     setCarregando(true);
 
     try {
-      const resposta = await api.post<RespostaLogin>("/auth/login", {
-        email,
-        password,
-      });
+      const { token, usuario } = await login(datos);
 
-      localStorage.setItem("token", resposta.data.token);
+      setAuth(token, usuario);
+
+      toast.success("¡Bienvenido!");
       navigate("/", { replace: true });
-    } catch (error) {
-      if (axios.isAxiosError(error)) {
-        if (error.response?.status === 401) {
-          setErro("E-mail o contraseña estan incorrectos.");
-        } else {
-          setErro(extraerMensajeError(error));
-          setErro(
-            error.response?.data?.message ??
-              "No fue posible conectar al servidor.",
-          );
-        }
-      } else {
-        setErro("Ocorrio un error inesperado.");
-      }
+    } catch (err: unknown) {
+      toast.error(extraerMensajeError(err));
     } finally {
       setCarregando(false);
     }
-  }
+  };
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-slate-100 p-4">
@@ -58,7 +53,11 @@ export function PaginaLogin() {
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form
+          onSubmit={handleSubmit(onSubmit)}
+          className="space-y-5"
+          noValidate
+        >
           <div>
             <label
               htmlFor="email"
@@ -66,16 +65,31 @@ export function PaginaLogin() {
             >
               E-mail
             </label>
+
             <input
               id="email"
               type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
+              {...register("email")}
               placeholder="Ex: user@email.com"
               autoComplete="username"
-              required
-              className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+              aria-invalid={Boolean(errors.email)}
+              aria-describedby={errors.email ? "email-error" : undefined}
+              className={`w-full rounded-lg border px-4 py-3 outline-none focus:ring-2 ${
+                errors.email
+                  ? "border-red-500 focus:border-red-500 focus:ring-red-100"
+                  : "border-slate-300 focus:border-teal-600 focus:ring-teal-100"
+              }`}
             />
+
+            {errors.email && (
+              <p
+                id="email-error"
+                role="alert"
+                className="mt-1 text-sm text-red-600"
+              >
+                {errors.email.message}
+              </p>
+            )}
           </div>
 
           <div>
@@ -85,26 +99,32 @@ export function PaginaLogin() {
             >
               Contraseña
             </label>
+
             <input
               id="password"
               type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              placeholder="Ex: Papas123"
+              {...register("password")}
+              placeholder="Ingresa tu contraseña"
               autoComplete="current-password"
-              required
-              className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+              aria-invalid={Boolean(errors.password)}
+              aria-describedby={errors.password ? "password-error" : undefined}
+              className={`w-full rounded-lg border px-4 py-3 outline-none focus:ring-2 ${
+                errors.password
+                  ? "border-red-500 focus:border-red-500 focus:ring-red-100"
+                  : "border-slate-300 focus:border-teal-600 focus:ring-teal-100"
+              }`}
             />
-          </div>
 
-          {erro && (
-            <p
-              role="alert"
-              className="rounded-lg bg-red-50 p-3 text-sm text-red-700"
-            >
-              {erro}
-            </p>
-          )}
+            {errors.password && (
+              <p
+                id="password-error"
+                role="alert"
+                className="mt-1 text-sm text-red-600"
+              >
+                {errors.password.message}
+              </p>
+            )}
+          </div>
 
           <button
             type="submit"
