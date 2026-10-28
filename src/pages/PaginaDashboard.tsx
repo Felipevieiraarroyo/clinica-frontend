@@ -7,7 +7,7 @@ import { api } from "../services/api";
 import type { Metrica } from "../types";
 import { extraerMensajeError } from "../lib/errorHandler";
 import { GraficoEspecialidades } from "../components/GraficoEspecialidades";
-import { obterPerfilToken } from "../lib/auth";
+import { useAuthStore } from "../stores/authStore";
 
 interface Paciente {
   id: number;
@@ -69,7 +69,7 @@ function esHoy(fechaHora: string): boolean {
 
 export function PaginaDashboard() {
   const navigate = useNavigate();
-  const perfil = obterPerfilToken();
+  const perfil = useAuthStore((state) => state.usuario?.rol ?? null);
   const ehGerencia = perfil === "GERENCIA";
 
   const [mantenimiento, setMantenimiento] = useState(false);
@@ -180,11 +180,11 @@ export function PaginaDashboard() {
     } finally {
       setCargando(false);
     }
-  }, []);
+  }, [ehGerencia]);
 
   useEffect(() => {
     void carregarDados();
-  }, [ehGerencia]);
+  }, [carregarDados]);
 
   const metricas: Metrica[] = [
     {
