@@ -1,6 +1,6 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { Layout } from "./components/Layout";
-import { RotaProtegida } from "./components/RutaProtegida";
+import RutaProtegida from "./components/RutaProtegida";
 import { PaginaLogin } from "./pages/PaginaLogin";
 import { PaginaDashboard } from "./pages/PaginaDashboard";
 import { PaginaPacientes } from "./pages/PaginaPacientes";
@@ -12,33 +12,41 @@ import { PaginaAcessoNegado } from "./pages/PaginaAcessoNegado";
 export default function App() {
   return (
     <Routes>
+      {/* Rotas públicas */}
       <Route path="/login" element={<PaginaLogin />} />
-      <Route path="/acesso-negado" element={<PaginaAcessoNegado />} />
+      <Route path="/sin-acceso" element={<PaginaAcessoNegado />} />
 
-      <Route element={<RotaProtegida />}>
+      {/* Todas as rotas abaixo exigem autenticação */}
+      <Route element={<RutaProtegida />}>
         <Route element={<Layout />}>
-          {/* Dashboard: Gerência e Recepcionista */}
+          {/* Dashboard: Gerencia e Recepcionista */}
           <Route
             element={
-              <RotaProtegida allowedRoles={["GERENCIA", "RECEPCIONISTA"]} />
+              <RutaProtegida rolesPermitidos={["GERENCIA", "RECEPCIONISTA"]} />
             }
           >
             <Route index element={<PaginaDashboard />} />
           </Route>
 
           {/* Pacientes e novas consultas: somente Recepcionista */}
-          <Route element={<RotaProtegida allowedRoles={["RECEPCIONISTA"]} />}>
+          <Route
+            element={<RutaProtegida rolesPermitidos={["RECEPCIONISTA"]} />}
+          >
             <Route path="pacientes" element={<PaginaPacientes />} />
             <Route path="pacientes/:id" element={<PaginaDetallePaciente />} />
             <Route path="citas/nueva" element={<PaginaNuevaCita />} />
           </Route>
 
+          {/* Somente Gerencia e Admin podem acessar os relatórios */}
+          <Route
+            element={<RutaProtegida rolesPermitidos={["GERENCIA", "ADMIN"]} />}
+          >
+            <Route path="reportes" element={<Navigate to="/" replace />} />
+          </Route>
+
           <Route path="*" element={<PaginaNotFound />} />
         </Route>
       </Route>
-
-      {/* Redirecionamento de endereços externos ao sistema */}
-      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }

@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { obterPerfilToken } from "../lib/auth";
+import { useAuthStore } from "../stores/authStore";
 
 const links = [
   {
@@ -27,14 +27,14 @@ const links = [
 
 export function Layout() {
   const navigate = useNavigate();
-  const perfil = obterPerfilToken();
+  const { usuario, logout } = useAuthStore();
 
   const linksPermitidos = links.filter((link) =>
-    perfil ? link.roles.includes(perfil) : false,
+    usuario ? link.roles.includes(usuario.rol) : false,
   );
 
   function handleLogout() {
-    localStorage.removeItem("token");
+    logout();
     navigate("/login", { replace: true });
   }
 
@@ -44,6 +44,14 @@ export function Layout() {
         <div className="mb-6">
           <h2 className="text-xl font-bold">Clínica Salud</h2>
           <p className="mt-1 text-sm text-slate-400">Sistema de gestión</p>
+        </div>
+
+        <div className="mb-6 rounded-lg bg-slate-800 p-4">
+          <p className="text-sm text-slate-400">Sesión activa</p>
+          <p className="mt-1 font-semibold">{usuario?.nombre ?? "Usuario"}</p>
+          <p className="mt-1 text-sm text-teal-300">
+            {usuario?.rol ?? "Sin perfil"}
+          </p>
         </div>
 
         <nav aria-label="Navegación principal">
@@ -76,7 +84,7 @@ export function Layout() {
             className="flex w-full items-center gap-3 rounded-lg px-4 py-3 font-medium text-slate-300 transition hover:bg-red-900 hover:text-white"
           >
             <span aria-hidden="true">🚪</span>
-            <span>Sair da conta</span>
+            <span>Cerrar sesión</span>
           </button>
         </div>
       </aside>
