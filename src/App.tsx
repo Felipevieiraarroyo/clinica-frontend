@@ -8,6 +8,8 @@ import { PaginaDetallePaciente } from "./pages/PaginaDetallePaciente";
 import { PaginaNuevaCita } from "./pages/PaginaNuevaCita";
 import { PaginaNotFound } from "./pages/PaginaNotFound";
 import { PaginaAcessoNegado } from "./pages/PaginaAcessoNegado";
+import { PaginaHistorialCitas } from "./pages/PaginaHistorialCitas";
+import { PaginaAgendaMedico } from "./pages/PaginaAgendaMedico";
 
 export default function App() {
   return (
@@ -35,6 +37,7 @@ export default function App() {
             <Route path="pacientes" element={<PaginaPacientes />} />
             <Route path="pacientes/:id" element={<PaginaDetallePaciente />} />
             <Route path="citas/nueva" element={<PaginaNuevaCita />} />
+            <Route path="historial" element={<PaginaHistorialCitas />} />
           </Route>
 
           {/* Somente Gerencia e Admin podem acessar os relatórios */}
@@ -42,6 +45,9 @@ export default function App() {
             element={<RutaProtegida rolesPermitidos={["GERENCIA", "ADMIN"]} />}
           >
             <Route path="reportes" element={<Navigate to="/" replace />} />
+          </Route>
+          <Route element={<RutaProtegida rolesPermitidos={["MEDICO"]} />}>
+            <Route path="agenda-medica" element={<PaginaAgendaMedico />} />
           </Route>
 
           <Route path="*" element={<PaginaNotFound />} />
