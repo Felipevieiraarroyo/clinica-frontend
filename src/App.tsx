@@ -10,6 +10,7 @@ import { PaginaNotFound } from "./pages/PaginaNotFound";
 import { PaginaAcessoNegado } from "./pages/PaginaAcessoNegado";
 import { PaginaHistorialCitas } from "./pages/PaginaHistorialCitas";
 import { PaginaAgendaMedico } from "./pages/PaginaAgendaMedico";
+import { ErrorBoundary } from "./components/ui/ErrorBoundary";
 
 export default function App() {
   return (
@@ -27,17 +28,38 @@ export default function App() {
               <RutaProtegida rolesPermitidos={["GERENCIA", "RECEPCIONISTA"]} />
             }
           >
-            <Route index element={<PaginaDashboard />} />
+            <Route
+              index
+              element={
+                <ErrorBoundary mensagem="No fue posible cargar el dashboard.">
+                  <PaginaDashboard />
+                </ErrorBoundary>
+              }
+            />
           </Route>
 
           {/* Pacientes e novas consultas: somente Recepcionista */}
           <Route
             element={<RutaProtegida rolesPermitidos={["RECEPCIONISTA"]} />}
           >
-            <Route path="pacientes" element={<PaginaPacientes />} />
+            <Route
+              path="pacientes"
+              element={
+                <ErrorBoundary mensagem="Não foi possível carregar a página de pacientes.">
+                  <PaginaPacientes />
+                </ErrorBoundary>
+              }
+            />
             <Route path="pacientes/:id" element={<PaginaDetallePaciente />} />
             <Route path="citas/nueva" element={<PaginaNuevaCita />} />
-            <Route path="historial" element={<PaginaHistorialCitas />} />
+            <Route
+              path="historial"
+              element={
+                <ErrorBoundary mensagem="Não foi possível carregar o histórico de consultas.">
+                  <PaginaHistorialCitas />
+                </ErrorBoundary>
+              }
+            />
           </Route>
 
           {/* Somente Gerencia e Admin podem acessar os relatórios */}
@@ -47,7 +69,14 @@ export default function App() {
             <Route path="reportes" element={<Navigate to="/" replace />} />
           </Route>
           <Route element={<RutaProtegida rolesPermitidos={["MEDICO"]} />}>
-            <Route path="agenda-medica" element={<PaginaAgendaMedico />} />
+            <Route
+              path="agenda-medica"
+              element={
+                <ErrorBoundary mensagem="Não foi possível carregar a agenda médica.">
+                  <PaginaAgendaMedico />
+                </ErrorBoundary>
+              }
+            />
           </Route>
 
           <Route path="*" element={<PaginaNotFound />} />

@@ -18,6 +18,9 @@ import type { Paciente } from "../services/pacientes.service";
 import { useFiltrosStore } from "../stores/filtrosStore";
 import { useDebounce } from "../hooks/useDebounce";
 import { extraerMensajeError } from "../lib/errorHandler";
+import { SkeletonPacienteRow } from "../components/SkeletonPacienteRow";
+import { ModalConfirmacion } from "../components/ui/ModalConfirmacion";
+import { AlertaBanner } from "../components/ui/AlertaBanner";
 
 export function PaginaPacientes() {
   const pacientes = usePacientesStore((state) => state.pacientes);
@@ -35,26 +38,31 @@ export function PaginaPacientes() {
 
   const [erro, setErro] = useState("");
   const [sucesso, setSucesso] = useState("");
+  const [pacienteAExcluir, setPacienteAExcluir] = useState<Paciente | null>(
+    null,
+  );
+  const [excluindo, setExcluindo] = useState(false);
 
   useEffect(() => {
-    void carregarPacientes(busquedaDebounced, true).catch((error: unknown) => {
-      setErro(extraerMensajeError(error));
-    });
-  });
+    void carregarPacientes(busquedaDebounced, true)
+      .then(() => setErro(""))
+      .catch((error: unknown) => {
+        setErro(extraerMensajeError(error));
+      });
+  }, [busquedaDebounced, carregarPacientes]);
 
   const mensagemErro = erro || erroStore || "";
 
-  async function handleExcluirPaciente(paciente: Paciente) {
-    const confirmado = window.confirm(
-      `Deseja realmente excluir ${paciente.nombre} ${paciente.apellido}?`,
-    );
+  async function handleExcluirPaciente() {
+    if (!pacienteAExcluir) return;
 
-    if (!confirmado) return;
+    setExcluindo(true);
 
     try {
-      await excluirPacienteStore(paciente.id);
+      await excluirPacienteStore(pacienteAExcluir.id);
 
       toast.success("Paciente apagado com sucesso!");
+      setPacienteAExcluir(null);
     } catch (error: unknown) {
       if (axios.isAxiosError(error)) {
         if (error.response?.status === 403) {
@@ -63,7 +71,7 @@ export function PaginaPacientes() {
           toast.error("Paciente não encontrado.");
         } else if (error.response?.status === 409) {
           toast.error(
-            "Não é possível excluir este paciente porque ele pode ter consultas associadas.",
+            "Não é possível excluir este paciente porque possui consultas associadas.",
           );
         } else {
           toast.error(extraerMensajeError(error));
@@ -71,6 +79,8 @@ export function PaginaPacientes() {
       } else {
         toast.error(extraerMensajeError(error));
       }
+    } finally {
+      setExcluindo(false);
     }
   }
 
@@ -148,22 +158,11 @@ export function PaginaPacientes() {
         </label>
 
         {!carregando && mensagemErro && (
-          <div
-            role="alert"
-            className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700"
-          >
-            <p className="font-semibold">
-              Não foi possível carregar os pacientes
-            </p>
-            <p className="mt-1 text-sm">{mensagemErro}</p>
-            <button
-              type="button"
-              onClick={() => window.location.reload()}
-              className="mt-3 rounded-lg bg-red-700 px-4 py-2 text-sm font-semibold text-white hover:bg-red-800"
-            >
-              Tentar novamente
-            </button>
-          </div>
+          <AlertaBanner
+            tipo="error"
+            titulo="No fue posible cargar los pacientes"
+            mensaje={mensagemErro}
+          />
         )}
 
         {!carregando && !erro && sucesso && (
@@ -203,7 +202,7 @@ export function PaginaPacientes() {
             </button>
           </div>
 
-          {!carregando && !erro && (
+          {!erro && (
             <>
               <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                 <div className="overflow-x-auto">
@@ -217,17 +216,21 @@ export function PaginaPacientes() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {pacientesFiltrados.length === 0 ? (
+                      {carregando ? (
+                        Array.from({ length: 5 }).map((_, index) => (
+                          <SkeletonPacienteRow key={index} />
+                        ))
+                      ) : pacientesFiltrados.length === 0 ? (
                         <tr>
                           <td
                             colSpan={4}
                             className="px-5 py-10 text-center text-slate-500"
                           >
                             <p className="font-semibold text-slate-700">
-                              Ningún paciente encontrado.
+                              Nenhum paciente encontrado.
                             </p>
                             <p className="mt-1 text-sm">
-                              Busque por otro nombre o correo electrónico.
+                              Busque por outro nome ou correo eletrônico.
                             </p>
                           </td>
                         </tr>
@@ -259,9 +262,7 @@ export function PaginaPacientes() {
                               </Link>
                               <button
                                 type="button"
-                                onClick={() =>
-                                  void handleExcluirPaciente(paciente)
-                                }
+                                onClick={() => setPacienteAExcluir(paciente)}
                                 className="ml-4 text-sm font-semibold text-red-600 hover:text-red-800"
                               >
                                 Excluir
@@ -281,6 +282,19 @@ export function PaginaPacientes() {
           )}
         </section>
       </div>
+      <ModalConfirmacion
+        abierto={pacienteAExcluir !== null}
+        titulo="Confirmar exclusão"
+        mensaje={
+          pacienteAExcluir
+            ? `Deseja realmente excluir ${pacienteAExcluir.nombre} ${pacienteAExcluir.apellido}?`
+            : ""
+        }
+        textoConfirmar="Excluir paciente"
+        cargando={excluindo}
+        onConfirmar={() => void handleExcluirPaciente()}
+        onCancelar={() => setPacienteAExcluir(null)}
+      />
     </main>
   );
 }

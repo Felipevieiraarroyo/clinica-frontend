@@ -8,6 +8,7 @@ import { SkeletonCita } from "../components/SkeletonCita";
 import { extraerMensajeError } from "../lib/errorHandler";
 import { useAuthStore } from "../stores/authStore";
 import { actualizarEstadoCita } from "../services/citas.service";
+import { EstadoVacio } from "../components/ui/EstadoVacio";
 
 type EstadoCita = "Todos" | "Programada" | "Completada" | "Cancelada";
 
@@ -275,14 +276,10 @@ export function PaginaHistorialCitas() {
                 </article>
               ))
             : !erro && (
-                <div className="rounded-xl border border-slate-200 bg-white p-10 text-center">
-                  <p className="font-semibold text-slate-700">
-                    No se encontraron citas.
-                  </p>
-                  <p className="mt-2 text-sm text-slate-500">
-                    Intenta seleccionar otro estado.
-                  </p>
-                </div>
+                <EstadoVacio
+                  titulo="Nenhuma consulta encontrada"
+                  descripcion="Não existem consultas para este filtro. Experimente selecionar outro estado."
+                />
               )}
       </section>
 

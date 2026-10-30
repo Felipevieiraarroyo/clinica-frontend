@@ -8,6 +8,8 @@ import type { Metrica } from "../types";
 import { extraerMensajeError } from "../lib/errorHandler";
 import { GraficoEspecialidades } from "../components/GraficoEspecialidades";
 import { useAuthStore } from "../stores/authStore";
+import { SkeletonMetricCard } from "../components/SkeletonMetricCard";
+import { AlertaBanner } from "../components/ui/AlertaBanner";
 
 interface Paciente {
   id: number;
@@ -256,16 +258,18 @@ export function PaginaDashboard() {
       )}
 
       {erro && (
-        <div
-          role="alert"
-          className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-rose-800"
-        >
-          <p>{erro}</p>
+        <div className="space-y-3">
+          <AlertaBanner
+            tipo="error"
+            titulo="Erro ao carregar o Dashboard"
+            mensaje={erro}
+          />
+
           <button
             type="button"
             onClick={() => void carregarDados()}
             disabled={cargando}
-            className="mt-3 rounded-lg bg-rose-700 px-4 py-2 font-semibold text-white hover:bg-rose-800 disabled:opacity-60"
+            className="rounded-lg bg-rose-700 px-4 py-2 font-semibold text-white hover:bg-rose-800 disabled:opacity-60"
           >
             {cargando ? "Carregando..." : "Tentar novamente"}
           </button>
@@ -282,11 +286,15 @@ export function PaginaDashboard() {
         className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4"
         aria-label="Métricas da clínica"
       >
-        {metricas
-          .filter((metrica) => !ehGerencia || metrica.id !== "pacientes")
-          .map((metrica) => (
-            <MetricCard key={metrica.id} metrica={metrica} />
-          ))}
+        {cargando
+          ? Array.from({ length: ehGerencia ? 3 : 4 }).map((_, index) => (
+              <SkeletonMetricCard key={index} />
+            ))
+          : metricas
+              .filter((metrica) => !ehGerencia || metrica.id !== "pacientes")
+              .map((metrica) => (
+                <MetricCard key={metrica.id} metrica={metrica} />
+              ))}
       </section>
 
       {ehGerencia && <GraficoEspecialidades />}
