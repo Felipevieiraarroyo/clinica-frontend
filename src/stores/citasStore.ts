@@ -31,9 +31,7 @@ export const useCitasStore = create<CitasState>()(
 
         try {
           const citasPaciente = get().citas.filter(
-            (cita) =>
-              cita.pacienteNombre.trim().toLowerCase() ===
-              id.trim().toLowerCase(),
+            (cita) => cita.pacienteId === id,
           );
 
           set({ citaSeleccionada: null });

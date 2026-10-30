@@ -4,9 +4,18 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { citaSchema, type CitaformData } from "../schema/citaSchema";
 import { useMedicos } from "../hooks/useMedicos";
 import "./FormularioCita.css";
+import { usePacientes } from "../hooks/usePacientes";
+import { crearCita } from "../services/citas.service";
+import { useState } from "react";
 
 export function FormularioCita() {
   const { medicos, cargando } = useMedicos();
+  const {
+    pacientes,
+    cargando: cargandoPacientes,
+    error: errorPacientes,
+  } = usePacientes();
+  const [errorEnvio, setErrorEnvio] = useState<string | null>(null);
   const citaAgendada = useCitasStore((state) => state.citaSeleccionada);
   const agregarCita = useCitasStore((state) => state.agregarCita);
   const seleccionarCita = useCitasStore((state) => state.seleccionar);
@@ -19,7 +28,7 @@ export function FormularioCita() {
   } = useForm<CitaformData>({
     resolver: zodResolver(citaSchema),
     defaultValues: {
-      pacienteNombre: "",
+      pacienteId: "",
       medicoId: "",
       fecha: "",
       hora: "",
@@ -29,19 +38,45 @@ export function FormularioCita() {
   });
 
   const onSubmit = async (datos: CitaformData) => {
-    await new Promise<void>((resolve) => setTimeout(resolve, 1500));
+    try {
+      setErrorEnvio(null);
 
-    const novaCita = agregarCita(datos);
-    seleccionarCita(novaCita.id);
+      const fechaHora = new Date(
+        `${datos.fecha}T${datos.hora}:00`,
+      ).toISOString();
+
+      await crearCita({
+        pacienteId: Number(datos.pacienteId),
+        medicoId: Number(datos.medicoId),
+        fechaHora,
+      });
+
+      // Mantém os dados no Zustand para exibir a confirmação.
+      // O cadastro real já foi realizado pela API.
+      const novaCita = agregarCita(datos);
+      seleccionarCita(novaCita.id);
+    } catch (error) {
+      console.error("Error al agendar la cita:", error);
+      setErrorEnvio(
+        "No fue posible agendar la cita. Verifica los datos e intenta nuevamente.",
+      );
+    }
   };
 
   const agendarOtraCita = () => {
     reset();
+    setErrorEnvio(null);
     seleccionarCita("");
   };
 
   if (citaAgendada) {
-    const medico = medicos.find((item) => item.id === citaAgendada.medicoId);
+    const medico = medicos.find(
+      (item) => String(item.id) === citaAgendada.medicoId,
+    );
+
+    const paciente = pacientes.find(
+      (item) => String(item.id) === citaAgendada.pacienteId,
+    );
 
     return (
       <section className="cita-container">
@@ -54,13 +89,17 @@ export function FormularioCita() {
 
           <div className="cita-resumen">
             <p>
-              <strong>Paciente:</strong> {citaAgendada.pacienteNombre}
+              <strong>Paciente:</strong>{" "}
+              {paciente
+                ? `${paciente.nombre} ${paciente.apellido}`
+                : "Paciente no encontrado"}
             </p>
             <p>
               <strong>Médico:</strong> {medico?.nombre ?? "No encontrado"}
             </p>
             <p>
-              <strong>Especialidad:</strong> {medico?.especialidad ?? "—"}
+              <strong>Especialidad:</strong>{" "}
+              {medico?.especialidad.nombre ?? "—"}
             </p>
             <p>
               <strong>Fecha:</strong> {citaAgendada.fecha}
@@ -97,19 +136,32 @@ export function FormularioCita() {
         noValidate
       >
         <div className="cita-campo">
-          <label htmlFor="pacienteNombre">Nombre del paciente</label>
-          <input
-            id="pacienteNombre"
-            type="text"
-            placeholder="Nombre completo"
-            className={
-              errors.pacienteNombre ? "cita-input invalido" : "cita-input"
-            }
-            aria-invalid={Boolean(errors.pacienteNombre)}
-            {...register("pacienteNombre")}
-          />
-          {errors.pacienteNombre && (
-            <p className="cita-error">{errors.pacienteNombre.message}</p>
+          <label htmlFor="pacienteId">Nombre del paciente</label>
+
+          <select
+            id="pacienteId"
+            className={errors.pacienteId ? "cita-input invalido" : "cita-input"}
+            aria-invalid={Boolean(errors.pacienteId)}
+            disabled={cargandoPacientes}
+            {...register("pacienteId")}
+          >
+            <option value="">
+              {cargandoPacientes
+                ? "Cargando pacientes..."
+                : "Selecciona un paciente"}
+            </option>
+
+            {pacientes.map((paciente) => (
+              <option key={paciente.id} value={paciente.id}>
+                {paciente.nombre} {paciente.apellido}
+              </option>
+            ))}
+          </select>
+
+          {errorPacientes && <p className="cita-error">{errorPacientes}</p>}
+
+          {errors.pacienteId && (
+            <p className="cita-error">{errors.pacienteId.message}</p>
           )}
         </div>
 
@@ -127,7 +179,7 @@ export function FormularioCita() {
             </option>
             {medicos.map((medico) => (
               <option key={medico.id} value={medico.id}>
-                {medico.nombre} — {medico.especialidad}
+                {medico.nombre} {medico.apellido} — {medico.especialidad.nombre}
               </option>
             ))}
           </select>
@@ -198,11 +250,15 @@ export function FormularioCita() {
             <p className="cita-error">{errors.urgencia.message}</p>
           )}
         </div>
-
+        {errorEnvio && (
+          <p className="cita-error" role="alert">
+            {errorEnvio}
+          </p>
+        )}
         <button
           type="submit"
           className="cita-boton"
-          disabled={isSubmitting || cargando}
+          disabled={isSubmitting || cargando || cargandoPacientes}
         >
           {isSubmitting ? "Agendando..." : "Agendar cita"}
         </button>
