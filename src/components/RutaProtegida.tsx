@@ -1,21 +1,22 @@
 import { Navigate, Outlet } from "react-router-dom";
 import { useAuthStore } from "../stores/authStore";
 
-interface RotaProtegidaProps {
-  allowedRoles?: string[];
+interface RutaProtegidaProps {
+  rolesPermitidos?: string[];
 }
 
-export function RotaProtegida({ allowedRoles }: RotaProtegidaProps) {
-  const token = useAuthStore((state) => state.token);
-  const usuario = useAuthStore((state) => state.usuario);
+function RutaProtegida({ rolesPermitidos }: RutaProtegidaProps) {
+  const { isAuthenticated, usuario } = useAuthStore();
 
-  if (!token) {
+  if (!isAuthenticated || !usuario) {
     return <Navigate to="/login" replace />;
   }
 
-  if (allowedRoles && (!usuario || !allowedRoles.includes(usuario.rol))) {
-    return <Navigate to="/acesso-negado" replace />;
+  if (rolesPermitidos && !rolesPermitidos.includes(usuario.rol)) {
+    return <Navigate to="/sin-acceso" replace />;
   }
 
   return <Outlet />;
 }
+
+export default RutaProtegida;
