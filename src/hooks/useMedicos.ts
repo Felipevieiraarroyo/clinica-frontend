@@ -1,43 +1,43 @@
 import { useEffect, useState } from "react";
+import { listarMedicos, type Medico } from "../services/medicos.service";
 
-export interface Medico {
-  id: string;
-  nombre: string;
-  especialidad: string;
-}
-
-const medicosSimulados: Medico[] = [
-  {
-    id: "1",
-    nombre: "Dra. Ana Silva",
-    especialidad: "Clínica general",
-  },
-  {
-    id: "2",
-    nombre: "Dr. Carlos Mendes",
-    especialidad: "Cardiología",
-  },
-  {
-    id: "3",
-    nombre: "Dra. Mariana Costa",
-    especialidad: "Pediatría",
-  },
-];
+export type { Medico };
 
 export function useMedicos() {
   const [medicos, setMedicos] = useState<Medico[]>([]);
   const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setMedicos(medicosSimulados);
-      setCargando(false);
-    }, 3000);
+    let activo = true;
+
+    async function cargarMedicos() {
+      try {
+        setCargando(true);
+        setError(null);
+
+        const datos = await listarMedicos();
+
+        if (activo) {
+          setMedicos(datos);
+        }
+      } catch {
+        if (activo) {
+          setError("No fue posible cargar los médicos.");
+        }
+      } finally {
+        if (activo) {
+          setCargando(false);
+        }
+      }
+    }
+
+    cargarMedicos();
 
     return () => {
-      clearTimeout(timer);
+      activo = false;
     };
   }, []);
 
-  return { medicos, cargando };
+  return { medicos, cargando, error };
 }
