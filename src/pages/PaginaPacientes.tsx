@@ -5,15 +5,13 @@
  * 3. La interfaz no estaba dividida en componentes reutilizables.
  * 4. Los estados de los pacientes no están protegidos por tipos específicos.
  */
-
-import { useEffect, useState } from "react";
 import type { ChangeEvent } from "react";
 import { Link } from "react-router-dom";
 import axios from "axios";
 import toast from "react-hot-toast";
+import { useState } from "react";
 
 import { FormularioPaciente } from "../components/FormularioPaciente";
-import { usePacientesStore } from "../stores/pacientesStore";
 import type { Paciente } from "../services/pacientes.service";
 import { useFiltrosStore } from "../stores/filtrosStore";
 import { useDebounce } from "../hooks/useDebounce";
@@ -21,37 +19,29 @@ import { extraerMensajeError } from "../lib/errorHandler";
 import { SkeletonPacienteRow } from "../components/SkeletonPacienteRow";
 import { ModalConfirmacion } from "../components/ui/ModalConfirmacion";
 import { AlertaBanner } from "../components/ui/AlertaBanner";
+import { usePacientes } from "../hooks/usePacientes";
 
 export function PaginaPacientes() {
-  const pacientes = usePacientesStore((state) => state.pacientes);
-  const carregando = usePacientesStore((state) => state.cargando);
-  const erroStore = usePacientesStore((state) => state.error);
-  const carregarPacientes = usePacientesStore((state) => state.cargar);
-  const excluirPacienteStore = usePacientesStore((state) => state.eliminar);
-
   const busqueda = useFiltrosStore((state) => state.queryPacientes);
   const setBusqueda = useFiltrosStore((state) => state.setQueryPacientes);
   const resetFiltros = useFiltrosStore((state) => state.resetFiltros);
-
-  const busquedaDebounced = useDebounce(busqueda, 350);
+  const busquedaDebounced = useDebounce(busqueda, 500);
   const buscando = busqueda !== busquedaDebounced;
 
-  const [erro, setErro] = useState("");
+  const {
+    pacientes,
+    cargando: cargandoPacientes,
+    error: erroStore,
+    eliminar: excluirPacienteStore,
+  } = usePacientes(busquedaDebounced);
+
   const [sucesso, setSucesso] = useState("");
   const [pacienteAExcluir, setPacienteAExcluir] = useState<Paciente | null>(
     null,
   );
   const [excluindo, setExcluindo] = useState(false);
 
-  useEffect(() => {
-    void carregarPacientes(busquedaDebounced, true)
-      .then(() => setErro(""))
-      .catch((error: unknown) => {
-        setErro(extraerMensajeError(error));
-      });
-  }, [busquedaDebounced, carregarPacientes]);
-
-  const mensagemErro = erro || erroStore || "";
+  const mensagemErro = erroStore || "";
 
   async function handleExcluirPaciente() {
     if (!pacienteAExcluir) return;
@@ -86,7 +76,6 @@ export function PaginaPacientes() {
 
   const handlePacienteCriado = (paciente: Paciente) => {
     setBusqueda("");
-    setErro("");
     setSucesso(
       `Paciente ${paciente.nombre} ${paciente.apellido} cadastrado com sucesso!`,
     );
@@ -123,11 +112,11 @@ export function PaginaPacientes() {
             Total de pacientes cadastrados
           </p>
           <p className="mt-2 text-3xl font-bold text-slate-900">
-            {carregando ? "…" : pacientes.length}
+            {cargandoPacientes ? "…" : pacientes.length}
           </p>
         </section>
 
-        {carregando && pacientes.length === 0 && (
+        {cargandoPacientes && pacientes.length === 0 && (
           <div
             role="status"
             className="rounded-xl bg-teal-50 p-4 text-teal-800"
@@ -145,7 +134,7 @@ export function PaginaPacientes() {
             placeholder="Buscar por nombre, apellido o correo... "
             aria-label="Buscar pacientes"
             className="w-full bg-transparent text-sm text-slate-800 outline-none"
-            disabled={carregando || Boolean(erro)}
+            disabled={cargandoPacientes || Boolean(erroStore)}
           />
 
           {buscando && (
@@ -157,7 +146,7 @@ export function PaginaPacientes() {
           )}
         </label>
 
-        {!carregando && mensagemErro && (
+        {!cargandoPacientes && erroStore && (
           <AlertaBanner
             tipo="error"
             titulo="No fue posible cargar los pacientes"
@@ -165,7 +154,7 @@ export function PaginaPacientes() {
           />
         )}
 
-        {!carregando && !erro && sucesso && (
+        {!cargandoPacientes && !erroStore && sucesso && (
           <p
             role="status"
             className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800"
@@ -174,7 +163,7 @@ export function PaginaPacientes() {
           </p>
         )}
 
-        {!carregando && !erro && (
+        {!cargandoPacientes && !erroStore && (
           <FormularioPaciente onPacienteCriado={handlePacienteCriado} />
         )}
 
@@ -189,7 +178,7 @@ export function PaginaPacientes() {
                 placeholder="Buscar por nombre, apellido o email..."
                 aria-label="Buscar pacientes"
                 className="w-full bg-transparent text-sm text-slate-800 outline-none"
-                disabled={carregando || Boolean(erro)}
+                disabled={cargandoPacientes || Boolean(erroStore)}
               />
             </label>
 
@@ -202,7 +191,7 @@ export function PaginaPacientes() {
             </button>
           </div>
 
-          {!erro && (
+          {!erroStore && (
             <>
               <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                 <div className="overflow-x-auto">
@@ -216,7 +205,7 @@ export function PaginaPacientes() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {carregando ? (
+                      {cargandoPacientes ? (
                         Array.from({ length: 5 }).map((_, index) => (
                           <SkeletonPacienteRow key={index} />
                         ))

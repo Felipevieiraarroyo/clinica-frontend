@@ -1,43 +1,27 @@
-import { useEffect, useState } from "react";
-import { listarPacientes, type Paciente } from "../services/pacientes.service";
+import { useEffect } from "react";
+import { usePacientesStore } from "../stores/pacientesStore";
 
-export type { Paciente };
+export function usePacientes(busqueda = "") {
+  const pacientes = usePacientesStore((state) => state.pacientes);
+  const cargando = usePacientesStore((state) => state.cargando);
+  const error = usePacientesStore((state) => state.error);
 
-export function usePacientes() {
-  const [pacientes, setPacientes] = useState<Paciente[]>([]);
-  const [cargando, setCargando] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const cargar = usePacientesStore((state) => state.cargar);
+  const crear = usePacientesStore((state) => state.crear);
+  const actualizar = usePacientesStore((state) => state.actualizar);
+  const eliminar = usePacientesStore((state) => state.eliminar);
 
   useEffect(() => {
-    let activo = true;
+    void cargar(busqueda);
+  }, [busqueda, cargar]);
 
-    async function cargarPacientes() {
-      try {
-        setCargando(true);
-        setError(null);
-
-        const datos = await listarPacientes();
-
-        if (activo) {
-          setPacientes(datos);
-        }
-      } catch {
-        if (activo) {
-          setError("No fue posible cargar los pacientes.");
-        }
-      } finally {
-        if (activo) {
-          setCargando(false);
-        }
-      }
-    }
-
-    cargarPacientes();
-
-    return () => {
-      activo = false;
-    };
-  }, []);
-
-  return { pacientes, cargando, error };
+  return {
+    pacientes,
+    cargando,
+    error,
+    cargar,
+    crear,
+    actualizar,
+    eliminar,
+  };
 }

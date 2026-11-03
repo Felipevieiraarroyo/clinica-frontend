@@ -1,4 +1,4 @@
-import { useCitasStore } from "../stores/citasStore";
+import { useCitas } from "../hooks/useCitas";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { citaSchema, type CitaformData } from "../schema/citaSchema";
@@ -16,9 +16,11 @@ export function FormularioCita() {
     error: errorPacientes,
   } = usePacientes();
   const [errorEnvio, setErrorEnvio] = useState<string | null>(null);
-  const citaAgendada = useCitasStore((state) => state.citaSeleccionada);
-  const agregarCita = useCitasStore((state) => state.agregarCita);
-  const seleccionarCita = useCitasStore((state) => state.seleccionar);
+  const {
+    citaSeleccionada: citaAgendada,
+    agregarCita,
+    seleccionar: seleccionarCita,
+  } = useCitas();
 
   const {
     register,
