@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import toast from "react-hot-toast";
 
-import { loginSchema, type LoginFormData } from "../schemas/loginSchema";
+import { loginSchema, type LoginFormData } from "../schema/loginSchema";
 import { login } from "../services/auth";
 import { useAuthStore } from "../stores/authStore";
 import { extraerMensajeError } from "../lib/errorHandler";
@@ -34,8 +34,15 @@ export function PaginaLogin() {
 
       setAuth(token, usuario);
 
+      setAuth(token, usuario);
+
       toast.success("¡Bienvenido!");
-      navigate("/", { replace: true });
+
+      if (usuario.rol === "MEDICO") {
+        navigate("/agenda-medica", { replace: true });
+      } else {
+        navigate("/", { replace: true });
+      }
     } catch (err: unknown) {
       toast.error(extraerMensajeError(err));
     } finally {

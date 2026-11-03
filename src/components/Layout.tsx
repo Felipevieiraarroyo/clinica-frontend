@@ -23,6 +23,20 @@ const links = [
     end: false,
     roles: ["RECEPCIONISTA"],
   },
+  {
+    to: "/historial",
+    label: "Historial de citas",
+    icon: "📋",
+    end: false,
+    roles: ["RECEPCIONISTA"],
+  },
+  {
+    to: "/agenda-medica",
+    label: "Mi agenda médica",
+    icon: "🩺",
+    end: false,
+    roles: ["MEDICO"],
+  },
 ];
 
 export function Layout() {

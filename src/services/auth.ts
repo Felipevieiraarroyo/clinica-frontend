@@ -1,5 +1,5 @@
 import { api } from "./api";
-import type { LoginFormData } from "../schemas/loginSchema";
+import type { LoginFormData } from "../schema/loginSchema";
 
 export interface LoginResponse {
   token: string;
